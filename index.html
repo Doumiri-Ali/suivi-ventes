@@ -97,7 +97,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
 #tip .r{display:flex;align-items:center;gap:8px}#tip .r i{width:12px;height:2px}#tip .r b{font-variant-numeric:tabular-nums}
 .rhead{display:none;align-items:flex-end;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:12px}
 .rhead h1{font-size:19px;line-height:1.1}.rhead .sub{color:var(--ink2);font-size:11px;margin-left:auto;text-align:right}
-.help{font-size:13.5px;color:var(--ink2)}.help code{background:var(--wash);padding:1px 5px;border-radius:4px}
+.help{font-size:13.5px;color:var(--ink2)}
 @media (max-width:860px){.saisie,.grid2{grid-template-columns:1fr}.live{position:static}.addc,.addc.wd{grid-template-columns:1fr 1fr}.kpi.lead{grid-column:1/-1}}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -228,13 +228,6 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
     <p class="help" style="margin-top:0">Ces catégories apparaissent dans la liste « Catégorie » des charges. Supprimer une catégorie ne change pas les charges déjà saisies.</p>
     <div id="catList"></div>
     <form id="fCat" style="display:flex;gap:8px;max-width:440px;margin-top:8px"><input name="c" placeholder="Nouvelle catégorie" required style="flex:1"><button class="btn pri">Ajouter</button></form>
-  </div>
-  <div class="card help" style="margin-top:16px"><h2>Comment c'est calculé (comme dans l'Excel)</h2>
-    <p><code>CA = Espèce + Carte Crédit + Vir/Chéq + Glovo en ligne + Crédit Client + Dépense (caisse)</code></p>
-    <p><code>Reçu par Noureddine = Espèce + Crédit Payé</code></p>
-    <p><code>Reste = Reste de la veille + Reçu − Versement</code> (départ = « Reste de départ » ci-dessus)</p>
-    <p><code>Résultat = CA − toutes les charges (caisse + banque)</code></p>
-    <p><code>Crédit clients en cours = total Crédit Client − total Crédit Payé</code></p>
   </div>
 </section>
 </main>
