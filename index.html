@@ -1,0 +1,833 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suivi des Ventes</title>
+<!-- SheetJS 0.18.5 (copie locale, fonctionne hors ligne) : lecture/écriture du fichier Excel -->
+<script src="xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f4f4f1;--surface:#fcfcfb;--field:#fff;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;--border:rgba(11,11,11,.10);
+  --s1:#2a78d6;--s2:#eb6834;--good:#006300;--bad:#d03b3b;--wash:rgba(42,120,214,.08);color-scheme:light;
+  --c1:#2a78d6;--c2:#eb6834;--c3:#1baf7a;--c4:#eda100;--c5:#e87ba4;--c6:#008300}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0d0d0d;--surface:#1a1a19;--field:#232322;--ink:#fff;--ink2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--axis:#383835;--border:rgba(255,255,255,.10);
+  --s1:#3987e5;--s2:#d95926;--good:#0ca30c;--bad:#e66767;--wash:rgba(57,135,229,.14);color-scheme:dark;
+  --c1:#3987e5;--c2:#d95926;--c3:#199e70;--c4:#c98500;--c5:#d55181;--c6:#008300}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--border)}
+.top{max-width:1240px;margin:auto;padding:10px 16px 0;display:flex;align-items:center;gap:12px}
+.brand{font-weight:700;font-size:17px}.brand small{color:var(--muted);font-weight:400;margin-left:6px}
+#fileName{margin-left:auto;font-size:13px;color:var(--ink2)}
+#saved{font-size:13px;color:var(--good);opacity:0;transition:opacity .3s}#saved.on{opacity:1}
+#banner .warn{background:rgba(208,59,59,.08)}#banner span{flex:1 1 320px}
+nav{max-width:1240px;margin:auto;padding:0 16px;display:flex;gap:4px;overflow-x:auto}
+nav button{border:0;background:none;color:var(--ink2);font:inherit;padding:10px 12px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+nav button.on{color:var(--ink);border-color:var(--s1);font-weight:600}
+main{max-width:1240px;margin:auto;padding:16px}
+#banner{max-width:1240px;margin:12px auto 0;padding:0 16px}
+#banner div{background:var(--wash);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+h1{font-size:22px;margin:0}h2{font-size:15px;margin:0 0 12px;color:var(--ink2);font-weight:600}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}.bar h1{margin-right:auto}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;min-width:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.grid2>.card{margin:0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(172px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 15px;min-width:0}
+.kpi .l{font-size:12.5px;color:var(--ink2)}
+.kpi .v{font-size:25px;font-weight:600;margin-top:3px;letter-spacing:-.4px}
+.kpi .s{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.35}
+.kpi.lead{grid-column:span 2}.kpi.lead .v{font-size:40px}
+.tl{font-size:13px;color:var(--ink2)}
+.dc{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:0 7px;background:var(--wash);color:var(--ink2)}
+.dc.up{color:var(--good);background:rgba(12,163,12,.12)}.dc.dn{color:var(--bad);background:rgba(208,59,59,.12)}
+/* « Ce qu'il faut retenir » : une phrase par constat, pastille ▲/▼ pour ne pas dépendre de la couleur seule */
+.ins{margin:0;padding:0;display:grid;gap:11px}
+.ins li{list-style:none;display:grid;grid-template-columns:20px 1fr;gap:10px;font-size:13.5px;line-height:1.45;color:var(--ink2)}
+.ins li b{color:var(--ink)}
+.ins .ic{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:10px;background:var(--wash);color:var(--ink2)}
+.ins .ic.up{background:rgba(12,163,12,.12);color:var(--good)}.ins .ic.dn{background:rgba(208,59,59,.12);color:var(--bad)}
+/* barre 100 % : part de chaque moyen de paiement */
+.sb{display:flex;height:22px;border-radius:6px;overflow:hidden;gap:2px;background:var(--surface);margin-bottom:12px}
+.sb i{display:block;min-width:3px}
+.sbl{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:5px 20px;font-size:13px}
+.sbl span{display:flex;align-items:center;gap:7px;min-width:0}
+.sbl i{width:9px;height:9px;border-radius:2px;flex:none}
+.sbl em{font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink2)}
+.sbl b{margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
+.sbl small{color:var(--muted);font-variant-numeric:tabular-nums;width:72px;text-align:right}
+.good{color:var(--good)}.bad{color:var(--bad)}
+input,select,button,textarea{font:inherit;color:var(--ink)}
+input,select,textarea{background:var(--field);border:1px solid var(--axis);border-radius:8px;padding:8px 10px;min-width:0}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--s1);outline-offset:-1px;border-color:transparent}
+.btn{background:var(--surface);border:1px solid var(--axis);border-radius:8px;padding:8px 14px;cursor:pointer}
+.btn:hover{background:var(--wash)}.btn.pri{background:var(--s1);border-color:var(--s1);color:#fff}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--axis);border-radius:999px;padding:3px 8px 3px 12px;margin:0 6px 8px 0;font-size:13.5px}
+.x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1}.x:hover{color:var(--bad)}
+.saisie{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+.saisie>.card{margin:0}
+fieldset{border:0;padding:0;margin:0 0 18px}legend{font-weight:600;margin-bottom:8px;padding:0}
+.flds{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.fld{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--ink2)}
+.fld input{font-size:16px;text-align:right;font-variant-numeric:tabular-nums}.fld small{color:var(--muted);font-size:11.5px}
+.live{position:sticky;top:110px}
+.big{font-size:34px;font-weight:600;font-variant-numeric:tabular-nums}
+.formula{font-size:12px;color:var(--muted);margin:2px 0 14px}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--grid)}
+.kv b{font-variant-numeric:tabular-nums}.kv small{display:block;color:var(--muted);font-size:11.5px}
+.addc{display:grid;grid-template-columns:1.2fr 1.6fr 1fr .9fr auto;gap:8px;margin-bottom:12px}
+.addc.wd{grid-template-columns:auto 1.2fr 1.6fr 1fr .9fr auto}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 8px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+th{font-weight:600;color:var(--ink2);font-size:12.5px;position:sticky;top:0;background:var(--surface)}
+th:first-child,td:first-child,td.t,th.t{text-align:left}td.t{white-space:normal;min-width:120px}
+tbody tr:hover{background:var(--wash)}tr.click{cursor:pointer}tr.we td:first-child{color:var(--muted)}
+tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
+.empty{color:var(--muted);font-size:14px}
+.hb{display:grid;grid-template-columns:minmax(0,160px) 1fr auto;align-items:center;gap:10px;margin:8px 0;font-size:13.5px}
+.hl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ht{height:12px}
+.ht i{display:block;height:100%;background:var(--s1);border-radius:0 4px 4px 0;min-width:2px}
+.hv{font-variant-numeric:tabular-nums;text-align:right}.hv small{color:var(--muted);margin-left:4px}
+.chart{width:100%;overflow:hidden;touch-action:pan-y}.chart svg{display:block}
+.gl{stroke:var(--grid)}.ax{stroke:var(--axis)}.tk{fill:var(--muted);font-size:11px}
+.chart path:hover{opacity:.8}
+.legend{display:flex;gap:16px;font-size:13px;color:var(--ink2);margin:-4px 0 8px}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+#tip{position:fixed;pointer-events:none;background:var(--surface);border:1px solid var(--border);box-shadow:0 4px 16px rgba(0,0,0,.12);border-radius:8px;padding:8px 10px;font-size:13px;display:none;z-index:9}
+#tip .r{display:flex;align-items:center;gap:8px}#tip .r i{width:12px;height:2px}#tip .r b{font-variant-numeric:tabular-nums}
+.rhead{display:none;align-items:flex-end;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:12px}
+.rhead h1{font-size:19px;line-height:1.1}.rhead .sub{color:var(--ink2);font-size:11px;margin-left:auto;text-align:right}
+.help{font-size:13.5px;color:var(--ink2)}.help code{background:var(--wash);padding:1px 5px;border-radius:4px}
+@media (max-width:860px){.saisie,.grid2{grid-template-columns:1fr}.live{position:static}.addc,.addc.wd{grid-template-columns:1fr 1fr}.kpi.lead{grid-column:1/-1}}
+@media print{
+  @page{size:A4 landscape;margin:9mm}
+  /* toujours imprimer en clair, même si l'écran est en mode sombre */
+  :root,:root:not([data-theme=light]){--bg:#fff;--surface:#fff;--field:#fff;--ink:#0b0b0b;--ink2:#52514e;--muted:#6b6963;--grid:#e1e0d9;--axis:#c3c2b7;--border:rgba(11,11,11,.22);
+    --s1:#2a78d6;--s2:#eb6834;--good:#006300;--bad:#d03b3b;--wash:rgba(42,120,214,.07);color-scheme:light;
+    --c1:#2a78d6;--c2:#eb6834;--c3:#1baf7a;--c4:#eda100;--c5:#e87ba4;--c6:#008300}
+  body{background:#fff;font-size:10.5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  header,#banner,#tip,.bar input,.bar button,#p-rapport .bar,.noprint{display:none!important}
+  main{padding:0;max-width:none}
+  .rhead{display:flex}
+  .card{border:0;border-bottom:1px solid var(--grid);border-radius:0;padding:0 0 9px;margin-bottom:11px;break-inside:avoid}
+  .grid2{gap:22px}h2{font-size:12px;margin-bottom:7px}
+  .kpis{grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:12px}
+  .kpi{padding:7px 9px;break-inside:avoid}.kpi .v{font-size:17px}.kpi.lead .v{font-size:25px}.kpi .s{font-size:9px}
+  .ins{gap:7px}.ins li{font-size:10.5px}
+  .sbl{font-size:10px}
+  table{font-size:8.5px}th,td{padding:3px 4px}thead{display:table-header-group}
+  .tw{overflow:visible}.pbreak{break-before:page}
+  .x{visibility:hidden}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="top"><div class="brand">Suivi des Ventes <small>TM</small></div><span id="fileName"></span><span id="saved">Enregistré ✓</span></div>
+  <nav>
+    <button data-p="dash">Tableau de bord</button>
+    <button data-p="saisie">Saisie du jour</button>
+    <button data-p="charges">Charges</button>
+    <button data-p="rapport">Rapport du mois</button>
+    <button data-p="bilan">Bilan mensuel</button>
+    <button data-p="params">Paramètres &amp; sauvegarde</button>
+  </nav>
+</header>
+<div id="banner"></div>
+<main>
+
+<section id="p-dash" class="page" hidden>
+  <div class="bar"><h1>Tableau de bord</h1><input type="month" class="ym" aria-label="Mois"></div>
+  <div class="kpis" id="tiles"></div>
+  <div class="card"><h2>Ce qu'il faut retenir</h2><div id="dIns"></div></div>
+  <div class="card"><h2>Chiffre d'affaires par jour (DH)</h2><div id="chDay" class="chart"></div></div>
+  <div class="grid2">
+    <div class="card"><h2>D'où vient le chiffre d'affaires</h2><div id="hbEnc"></div></div>
+    <div class="card"><h2>Charges par catégorie (DH)</h2><div id="hbCh"></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>CA moyen par jour de la semaine (DH)</h2><div id="chDow" class="chart"></div></div>
+    <div class="card"><h2>CA cumulé depuis le 1er du mois (DH)</h2><div class="legend" id="cumLeg"></div><div id="chCum" class="chart"></div></div>
+  </div>
+</section>
+
+<section id="p-saisie" class="page" hidden>
+  <div class="bar"><h1>Saisie du jour</h1>
+    <button class="btn" id="dPrev" aria-label="Jour précédent">◀</button>
+    <input type="date" id="dDate" aria-label="Date">
+    <button class="btn" id="dNext" aria-label="Jour suivant">▶</button>
+    <button class="btn" id="dToday">Aujourd'hui</button>
+  </div>
+  <div class="saisie">
+    <form id="fJour" class="card" autocomplete="off" onsubmit="return false"></form>
+    <aside class="card live" id="live"></aside>
+  </div>
+  <div class="card" style="margin-top:16px"><h2>Dépenses / charges de ce jour</h2>
+    <form class="fCharge addc"><input type="hidden" name="date">
+      <select name="cat" aria-label="Catégorie" required></select>
+      <input name="lib" placeholder="Libellé (ex : légumes marché)">
+      <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant DH" required>
+      <select name="source"><option>Caisse</option><option>Banque</option></select>
+      <button class="btn pri">Ajouter</button>
+    </form>
+    <div id="dayCh"></div>
+  </div>
+</section>
+
+<section id="p-charges" class="page" hidden>
+  <div class="bar"><h1>Charges</h1><input type="month" class="ym" aria-label="Mois"></div>
+  <div class="card"><h2>Ajouter une charge</h2>
+    <form class="fCharge addc wd">
+      <input type="date" name="date" required aria-label="Date">
+      <select name="cat" aria-label="Catégorie" required></select>
+      <input name="lib" placeholder="Libellé">
+      <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant DH" required>
+      <select name="source"><option>Caisse</option><option>Banque</option></select>
+      <button class="btn pri">Ajouter</button>
+    </form>
+    <p class="help" style="margin:0">« Caisse » = payé avec l'argent de la caisse (compté dans la colonne <b>Dépense</b> du jour). « Banque » = payé par virement / chèque.</p>
+  </div>
+  <div class="grid2" style="margin-bottom:16px">
+    <div class="card"><h2>Total du mois</h2><div id="chTot"></div></div>
+    <div class="card"><h2>Par catégorie</h2><div id="chCat"></div></div>
+  </div>
+  <div class="card"><h2>Liste des charges</h2><div class="tw" id="chList"></div></div>
+</section>
+
+<section id="p-rapport" class="page" hidden>
+  <div class="bar"><h1>Rapport du mois</h1><input type="month" class="ym" aria-label="Mois">
+    <button class="btn" onclick="print()">Imprimer / Enregistrer en PDF</button><button class="btn pri" id="xMonth">Exporter Excel</button></div>
+  <div id="rapport"></div>
+</section>
+
+<section id="p-bilan" class="page" hidden>
+  <div class="bar"><h1>Bilan mois par mois</h1><input type="number" id="yr" min="2000" max="2100" style="width:100px" aria-label="Année">
+    <button class="btn" onclick="print()">Imprimer / PDF</button><button class="btn pri" id="xYear">Exporter Excel</button></div>
+  <div class="card"><h2>CA et charges par mois (DH)</h2>
+    <div class="legend"><span><i style="background:var(--s1)"></i>CA</span><span><i style="background:var(--s2)"></i>Charges</span></div>
+    <div id="chYear" class="chart"></div></div>
+  <div class="card"><div class="tw" id="yTable"></div></div>
+</section>
+
+<section id="p-params" class="page" hidden>
+  <div class="bar"><h1>Paramètres &amp; sauvegarde</h1></div>
+  <div class="grid2">
+    <div class="card"><h2>Caisse</h2>
+      <div class="flds" id="pFields"></div>
+    </div>
+    <div class="card"><h2>Fichier de données (Excel)</h2>
+      <p class="help" id="fileInfo"></p>
+      <div class="fsonly"><button class="btn pri" onclick="newFile()">Créer un nouveau fichier</button> <button class="btn" onclick="openFile()">Ouvrir un fichier existant</button></div>
+      <p class="help" style="margin-top:16px">Copie de sécurité (clé USB, e-mail…) :</p>
+      <p id="lastB" class="help"></p>
+      <button class="btn" id="bSave">Télécharger une copie Excel</button>
+      <label class="btn" style="display:inline-block;margin-top:8px">Restaurer depuis une copie<input type="file" id="bLoad" accept=".xlsx,.xls" hidden></label>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px"><h2>Catégories de charges</h2>
+    <p class="help" style="margin-top:0">Ces catégories apparaissent dans la liste « Catégorie » des charges. Supprimer une catégorie ne change pas les charges déjà saisies.</p>
+    <div id="catList"></div>
+    <form id="fCat" style="display:flex;gap:8px;max-width:440px;margin-top:8px"><input name="c" placeholder="Nouvelle catégorie" required style="flex:1"><button class="btn pri">Ajouter</button></form>
+  </div>
+  <div class="card help" style="margin-top:16px"><h2>Comment c'est calculé (comme dans l'Excel)</h2>
+    <p><code>CA = Espèce + Carte Crédit + Vir/Chéq + Glovo en ligne + Crédit Client + Dépense (caisse)</code></p>
+    <p><code>Reçu par Noureddine = Espèce + Crédit Payé</code></p>
+    <p><code>Reste = Reste de la veille + Reçu − Versement</code> (départ = « Reste de départ » ci-dessus)</p>
+    <p><code>Résultat = CA − toutes les charges (caisse + banque)</code></p>
+    <p><code>Crédit clients en cours = total Crédit Client − total Crédit Payé</code></p>
+  </div>
+</section>
+</main>
+<div id="tip"></div>
+
+<script>
+const KEY = 'suiviVentes.v1', RESP = 'Noureddine';
+// [clé, en-tête Excel, groupe, aide]
+const F = [
+  ['esp', 'Espèce', 'enc', 'Argent compté en caisse'],
+  ['cb', 'Carte Crédit', 'enc', 'Total TPE'],
+  ['vir', 'Vir/Chéq', 'enc', 'Virements et chèques'],
+  ['glovoEsp', 'Glovo/Espèce', 'enc', 'Pour info — non inclus dans le CA'],
+  ['glovoLigne', 'Glovo/En ligne', 'enc', 'Payé en ligne via Glovo'],
+  ['creditClient', 'Crédit Client', 'cred', 'Vendu à crédit aujourd\'hui'],
+  ['creditPaye', 'Crédit Payé', 'cred', 'Crédit remboursé par les clients'],
+  ['remise', 'Remise', 'perte', ''],
+  ['offert', 'Offert', 'perte', ''],
+  ['perte', 'Perte', 'perte', ''],
+  ['annul', 'Annulation', 'perte', ''],
+  ['versement', 'Versement', 'caisse', 'Versé à la banque (Vrs Esp)'],
+];
+const GROUPS = [['enc', 'Encaissements'], ['cred', 'Crédit clients'], ['perte', 'Remises & pertes (pour info)'], ['caisse', 'Caisse']];
+const NUM = [...F.map(f => f[0]), 'dep', 'charges', 'ca', 'recu'];
+// Colonnes du rapport, dans l'ordre de la feuille Excel d'origine
+const RCOLS = [['date', 'Date'], ['ca', 'CA'], ['esp', 'Espèce'], ['cb', 'Carte Crédit'], ['vir', 'Vir/Chéq'], ['glovoEsp', 'Glovo/Espèce'], ['glovoLigne', 'Glovo/En ligne'],
+  ['creditPaye', 'Crédit Payé'], ['creditClient', 'Crédit Client'], ['remise', 'Remise'], ['offert', 'Offert'], ['perte', 'Perte'], ['annul', 'Annulation'],
+  ['dep', 'Dépense'], ['recu', 'Reçu par ' + RESP], ['versement', 'Versement'], ['reste', 'Reste'], ['obs', 'Observation']];
+const CATS = ['Achats marchandises', 'Salaires', 'Loyer', 'Électricité / Eau', 'Gaz', 'Fournitures', 'Transport', 'Entretien', 'Impôts / Taxes', 'Autre'];
+const PARAMS = [['soldeInitial', 'Reste de départ (DH)', 'Argent déjà en main avant le 1er jour saisi'], ['fondCaisse', 'Fond de caisse (DH)', ''],
+  ['euro', 'Dont en Euro (€)', 'Partie du Reste gardée en euros'], ['taux', 'Taux Euro → DH', 'Dans l\'Excel : 10']];
+
+// ---------- utilitaires ----------
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2, '0');
+const isoOf = t => `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+const today = () => isoOf(new Date());
+const addDays = (d, n) => { const t = new Date(d + 'T00:00'); t.setDate(t.getDate() + n); return isoOf(t); };
+const daysOf = ym => { const [y, m] = ym.split('-').map(Number); return Array.from({ length: new Date(y, m, 0).getDate() }, (_, i) => `${ym}-${pad(i + 1)}`); };
+const prevYm = ym => { const [y, m] = ym.split('-').map(Number); return isoOf(new Date(y, m - 2, 1)).slice(0, 7); };
+const mName = ym => new Date(ym + '-01T00:00').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+const dLabel = d => new Date(d + 'T00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+const fd = d => d.split('-').reverse().join('/');
+const nf = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = v => nf.format(v || 0);
+const fmtC = v => new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 }).format(v);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+const num = v => +String(v ?? '').replace(/\s/g, '').replace(',', '.') || 0;
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const sumBy = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
+
+// ---------- stockage ----------
+const withUsed = (cats, charges = []) => [...new Set([...cats, ...charges.map(c => c.cat)])];
+const DEF = () => ({ jours: {}, charges: [], cats: [...CATS], params: { soldeInitial: 0, fondCaisse: 0, euro: 0, taux: 10 }, lastBackup: null });
+// Les données vont dans un fichier Excel choisi par l'utilisateur (Chrome / Edge).
+// Le navigateur en garde aussi une copie (localStorage), utilisée si le fichier n'est pas accessible.
+function load() {
+  let raw;
+  try { raw = localStorage.getItem(KEY); } catch { return DEF(); } // stockage du navigateur bloqué : le fichier prend le relais
+  if (!raw) return DEF();
+  try {
+    const d = JSON.parse(raw), def = DEF();
+    // anciennes données sans liste : catégories par défaut + celles déjà utilisées
+    return { ...def, ...d, cats: d.cats || withUsed(def.cats, d.charges), params: { ...def.params, ...d.params } };
+  } catch (e) {
+    // on garde une copie des données illisibles au lieu de les écraser
+    try { localStorage.setItem(KEY + '.illisible.' + Date.now(), raw); } catch { }
+    alert('Les données du navigateur sont illisibles (' + e.message + '). Une copie a été gardée. Ouvrez votre fichier de données.');
+    return DEF();
+  }
+}
+let db = load(), savedT;
+function flash(msg) { $('#saved').textContent = msg; $('#saved').classList.add('on'); clearTimeout(savedT); savedT = setTimeout(() => $('#saved').classList.remove('on'), 1500); }
+function save() {
+  db.savedAt = Date.now();
+  let local = true;
+  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch { local = false; }
+  if (fileH && fileState !== 'reconnect') return queueFileSave();
+  if (!local) return alert("Rien n'est enregistré ! Ouvrez l'app dans Chrome ou Edge et choisissez un fichier de données.");
+  flash('Enregistré dans le navigateur');
+}
+navigator.storage?.persist?.();
+
+// ---------- fichier de données ----------
+const FS_OK = 'showSaveFilePicker' in window;
+let fileH = null, fileState = '', fileErr = '', fileT; // fileState : '' | 'reconnect' | 'ok' | 'err'
+// IndexedDB : seul endroit où le navigateur accepte de retenir quel fichier a été choisi
+function idb(mode, fn) {
+  return new Promise((res, rej) => {
+    const o = indexedDB.open('suiviVentes', 1);
+    o.onupgradeneeded = () => o.result.createObjectStore('kv');
+    o.onerror = () => rej(o.error);
+    o.onsuccess = () => { const tx = o.result.transaction('kv', mode), r = fn(tx.objectStore('kv')); tx.oncomplete = () => res(r.result); tx.onerror = () => rej(tx.error); };
+  });
+}
+const XLSX_PICK = { types: [{ description: 'Classeur Excel', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }] };
+// mode 'nouveau' : on écrit les données actuelles ; 'ouvrir' : le fichier remplace tout ; 'auto' : la version la plus récente gagne
+async function useFile(h, mode) {
+  if (mode !== 'nouveau') {
+    const nd = fromWorkbook(XLSX.read(await (await h.getFile()).arrayBuffer()));
+    if (!nd) throw new Error("ce fichier n'est pas un fichier de données Suivi des Ventes");
+    if (mode === 'ouvrir' || (nd.savedAt || 0) >= (db.savedAt || 0)) db = nd;
+  }
+  fileH = h; fileState = 'ok';
+  await idb('readwrite', s => s.put(h, 'file'));
+  save(); render();
+}
+const fail = e => { if (e.name !== 'AbortError') alert('Fichier : ' + e.message); };
+async function newFile() {
+  try { await useFile(await showSaveFilePicker({ suggestedName: 'donnees-suivi-ventes.xlsx', ...XLSX_PICK }), 'nouveau'); } catch (e) { fail(e); }
+}
+async function openFile() {
+  if ((db.charges.length || Object.keys(db.jours).length) && !confirm('Les données du fichier vont remplacer celles affichées. Continuer ?')) return;
+  try { const [h] = await showOpenFilePicker(XLSX_PICK); await useFile(h, 'ouvrir'); } catch (e) { fail(e); }
+}
+async function reconnect() {
+  try { if (await fileH.requestPermission({ mode: 'readwrite' }) === 'granted') await useFile(fileH, 'auto'); } catch (e) { fail(e); }
+}
+const queueFileSave = () => { clearTimeout(fileT); fileT = setTimeout(writeFile, 500); };
+async function writeFile() {
+  try {
+    const w = await fileH.createWritable();
+    await w.write(XLSX.write(toWorkbook(), { type: 'array', bookType: 'xlsx' }));
+    await w.close();
+    fileState = 'ok'; flash('Enregistré ✓ ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
+  } catch (e) { fileState = 'err'; fileErr = e.message; }
+  renderBanner();
+}
+async function initFile() { // reprendre le fichier utilisé la dernière fois
+  if (!FS_OK) return;
+  try {
+    const h = await idb('readonly', s => s.get('file'));
+    if (!h) return;
+    fileH = h;
+    if (await h.queryPermission({ mode: 'readwrite' }) === 'granted') await useFile(h, 'auto');
+    else { fileState = 'reconnect'; renderBanner(); }
+  } catch (e) { fileState = 'err'; fileErr = e.message; renderBanner(); }
+}
+
+// ---------- calculs (les formules de la feuille Excel) ----------
+function ledger(d = db) {
+  const byDate = {};
+  for (const c of d.charges) (byDate[c.date] ??= []).push(c);
+  const dates = [...new Set([...Object.keys(d.jours), ...Object.keys(byDate)])].sort();
+  let reste = +d.params.soldeInitial || 0, credit = 0;
+  return dates.map(date => {
+    const j = d.jours[date] || {}, ch = byDate[date] || [], r = { date, obs: j.obs || '' };
+    for (const [k] of F) r[k] = +j[k] || 0;
+    r.dep = sumBy(ch.filter(c => c.source === 'Caisse'), c => +c.montant || 0);
+    r.charges = sumBy(ch, c => +c.montant || 0);
+    r.ca = r.esp + r.cb + r.vir + r.glovoLigne + r.creditClient + r.dep; // colonne B
+    r.recu = r.esp + r.creditPaye;                                        // colonne P
+    reste += r.recu - r.versement; r.reste = reste;                       // colonne R
+    credit += r.creditClient - r.creditPaye; r.credit = credit;
+    return r;
+  });
+}
+const totals = rows => Object.fromEntries(NUM.map(k => [k, sumBy(rows, r => r[k])]));
+const monthRows = (L, ym) => L.filter(r => r.date.startsWith(ym));
+function at(L, date) { // Reste et crédit en cours à la fin de `date`
+  let reste = +db.params.soldeInitial || 0, credit = 0;
+  for (const r of L) { if (r.date > date) break; reste = r.reste; credit = r.credit; }
+  return { reste, credit };
+}
+function monthDays(L, ym) {
+  const map = Object.fromEntries(monthRows(L, ym).map(r => [r.date, r])), t = today();
+  let carry = at(L, addDays(ym + '-01', -1)).reste;
+  return daysOf(ym).map(date => { const r = map[date]; if (r) carry = r.reste; return { date, r, reste: date <= t || r ? carry : null }; });
+}
+const chargesByCat = ym => {
+  const o = {};
+  for (const c of db.charges) if (c.date.startsWith(ym)) o[c.cat] = (o[c.cat] || 0) + (+c.montant || 0);
+  return Object.entries(o);
+};
+
+// ---------- petits composants ----------
+const kpi = (l, v, s = '', cls = '') => `<div class="kpi ${cls}"><div class="l">${l}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
+const pct = v => (Math.abs(v) < 10 ? v.toFixed(1) : Math.round(v).toString()).replace('.', ',') + ' %';
+const dchip = d => d == null ? '' : `<span class="dc ${d >= 0 ? 'up' : 'dn'}">${d >= 0 ? '▲' : '▼'} ${pct(Math.abs(d))}</span>`;
+// palette catégorielle validée (contraste + daltonisme), claire / sombre
+const SER = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)', 'var(--c5)', 'var(--c6)'];
+// barre 100 % : chaque part est aussi écrite en toutes lettres (la couleur ne porte jamais seule l'information)
+function stackbar(items) {
+  items = items.filter(i => i[1] > 0);
+  if (!items.length) return '<p class="empty">Aucune donnée pour ce mois.</p>';
+  const tot = sumBy(items, i => i[1]);
+  return `<div class="sb">${items.map(([l, v], i) => `<i style="width:${v / tot * 100}%;background:${SER[i % 6]}"><title>${esc(l)}</title></i>`).join('')}</div>
+    <div class="sbl">${items.map(([l, v], i) => `<span><i style="background:${SER[i % 6]}"></i><em>${esc(l)}</em><b>${pct(v / tot * 100)}</b><small>${fmt(v)}</small></span>`).join('')}</div>`;
+}
+const kv = (l, v, s = '', cls = '') => `<div class="kv"><span>${l}${s ? `<small>${s}</small>` : ''}</span><b class="${cls}">${v}</b></div>`;
+const signed = v => `<span class="${v >= 0 ? 'good' : 'bad'}">${v >= 0 ? '+' : '−'}${fmt(Math.abs(v))}</span>`;
+function hbars(items) {
+  items = items.filter(i => i[1] > 0).sort((a, b) => b[1] - a[1]);
+  if (!items.length) return '<p class="empty">Aucune donnée pour ce mois.</p>';
+  const max = items[0][1], tot = sumBy(items, i => i[1]);
+  return items.map(([l, v]) => `<div class="hb"><span class="hl" title="${esc(l)}">${esc(l)}</span><span class="ht"><i style="width:${v / max * 100}%"></i></span><span class="hv">${fmt(v)}<small>${Math.round(v / tot * 100)} %</small></span></div>`).join('');
+}
+const niceMax = v => { if (v <= 0) return 100; const raw = v / 4, p = 10 ** Math.floor(Math.log10(raw)), f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p * 4; };
+const barPath = (x, y, w, h) => { const r = Math.min(4, h, w / 2); return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`; };
+const tip = $('#tip');
+function colChart(el, labels, tipLabels, series, ref) {
+  const W = Math.max(280, el.clientWidth), H = 240, L = 48, R = 6, T = 10, B = 24, ph = H - T - B, n = labels.length, band = (W - L - R) / n;
+  const bars = series.filter(se => !se.line), lines = series.filter(se => se.line), k = bars.length || 1;
+  const max = niceMax(Math.max(0, ...series.flatMap(se => se.data), ref || 0)), y = v => T + ph - v / max * ph;
+  const bw = Math.max(2, Math.min(24, (band * .72 - (k - 1) * 2) / k)), step = Math.ceil(n / Math.max(4, Math.floor((W - L) / 34)));
+  // viewBox : le graphique se redimensionne tout seul, y compris sur la page imprimée
+  let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="Graphique">`;
+  for (let i = 0; i <= 4; i++) { const yy = y(max * i / 4); s += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" class="${i ? 'gl' : 'ax'}"/><text x="${L - 6}" y="${yy + 4}" class="tk" text-anchor="end">${fmtC(max * i / 4)}</text>`; }
+  labels.forEach((lab, i) => {
+    const x0 = L + i * band + (band - (k * bw + (k - 1) * 2)) / 2;
+    bars.forEach((se, j) => { const v = se.data[i]; if (v > 0) s += `<path d="${barPath(x0 + j * (bw + 2), y(v), bw, y(0) - y(v))}" style="fill:${se.color}"/>`; });
+    if (i % step === 0) s += `<text x="${L + i * band + band / 2}" y="${H - 6}" class="tk" text-anchor="middle">${lab}</text>`;
+  });
+  for (const se of lines) s += `<path d="${se.data.map((v, i) => `${i ? 'L' : 'M'}${(L + i * band + band / 2).toFixed(1)},${y(v).toFixed(1)}`).join('')}" fill="none" stroke="${se.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  if (ref > 0) s += `<line x1="${L}" x2="${W - R}" y1="${y(ref)}" y2="${y(ref)}" stroke="var(--ink2)" stroke-width="1" stroke-dasharray="4 3"/><text x="${W - R}" y="${y(ref) - 5}" class="tk" text-anchor="end">moyenne ${fmtC(ref)}</text>`;
+  for (let i = 0; i < n; i++) s += `<rect x="${L + i * band}" y="${T}" width="${band}" height="${ph}" fill="transparent" data-i="${i}"/>`;
+  el.innerHTML = s + '</svg>';
+  el.onpointermove = el.onpointerdown = e => {
+    const i = e.target.dataset?.i;
+    if (i == null) return (tip.style.display = 'none');
+    tip.innerHTML = `<div style="margin-bottom:4px;color:var(--ink2)">${tipLabels[i]}</div>` + series.filter(se => se.data[i] != null).map(se => `<div class="r"><i style="background:${se.color}"></i><b>${fmt(se.data[i])}</b> ${se.name}</div>`).join('');
+    tip.style.display = 'block';
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (e.clientY - tip.offsetHeight - 10) + 'px';
+  };
+  el.onpointerleave = () => (tip.style.display = 'none');
+}
+
+// ---------- statistiques du mois (une seule fois, réutilisées par le tableau de bord et le rapport) ----------
+const DOW = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+const DOWS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+function stats(ym) {
+  const L = ledger(), rows = monthRows(L, ym), t = totals(rows), all = daysOf(ym), td = today();
+  const ref = all.at(-1) < td ? all.at(-1) : td > all[0] ? td : all[0];   // dernier jour à prendre en compte
+  const elapsed = all.filter(d => d <= ref).length;
+  const map = Object.fromEntries(rows.map(r => [r.date, r]));
+  const act = rows.filter(r => r.ca > 0);                                  // jours réellement travaillés
+  const avg = act.length ? t.ca / act.length : 0;
+  // mois précédent ramené à la même période (1er → même quantième), sinon la comparaison est fausse
+  const prev = prevYm(ym), pRows = monthRows(L, prev), p = totals(pRows.filter(r => r.date.slice(8) <= ref.slice(8)));
+  const dow = Array.from({ length: 7 }, () => [0, 0]);
+  for (const r of act) { const d = new Date(r.date + 'T00:00').getDay(); dow[d][0]++; dow[d][1] += r.ca; }
+  const cum = (rws, n) => { const m = {}; let c = 0; for (const r of rws) m[+r.date.slice(8)] = r.ca; return Array.from({ length: n }, (_, i) => c += (m[i + 1] || 0)); };
+  const res = t.ca - t.charges;
+  return {
+    ym, L, rows, t, all, ref, elapsed, map, act, avg, prev, p, res,
+    delta: p.ca ? (t.ca - p.ca) / p.ca * 100 : null,
+    dowAvg: dow.map(([n, v]) => n ? v / n : 0),
+    best: act.length ? act.reduce((a, b) => b.ca > a.ca ? b : a) : null,
+    end: at(L, ref),
+    marge: t.ca ? res / t.ca * 100 : 0,
+    cats: chargesByCat(ym).sort((a, b) => b[1] - a[1]),
+    pertes: t.remise + t.offert + t.perte + t.annul,
+    // projection : rythme des jours écoulés étendu au mois entier (mois en cours uniquement)
+    proj: ym === td.slice(0, 7) && elapsed > 0 && elapsed < all.length ? t.ca / elapsed * all.length : null,
+    mix: [['Espèce', t.esp], ['Carte crédit', t.cb], ['Virement / Chèque', t.vir], ['Glovo en ligne', t.glovoLigne], ['Crédit client', t.creditClient], ['Dépenses en caisse', t.dep]],
+    cumA: cum(rows, elapsed), cumP: cum(pRows, daysOf(prev).length),
+  };
+}
+// Constats rédigés en français courant : chacun donne le chiffre ET ce qu'il faut en comprendre.
+function insights(s) {
+  const o = [], add = (k, h, t = '') => o.push({ k, h, t });
+  if (!s.act.length) return o;
+  const t = s.t;
+  if (s.delta != null) add(s.delta >= 0 ? 'up' : 'dn', `CA ${s.delta >= 0 ? 'en hausse' : 'en baisse'} de ${pct(Math.abs(s.delta))}`,
+    `${fmt(t.ca)} DH contre ${fmt(s.p.ca)} DH sur la même période de ${mName(s.prev)}.`);
+  if (s.proj) add('', `Projection fin de mois : ${fmt(s.proj)} DH`, `au rythme des ${s.elapsed} premiers jours (${fmt(t.ca / s.elapsed)} DH par jour de calendrier).`);
+  if (s.best) add('up', `Meilleur jour : ${dLabel(s.best.date)} avec ${fmt(s.best.ca)} DH`,
+    s.avg ? `soit ${(s.best.ca / s.avg).toFixed(1).replace('.', ',')} fois la moyenne du mois (${fmt(s.avg)} DH).` : '');
+  const d = s.dowAvg.map((v, i) => [v, i]).filter(x => x[0] > 0).sort((a, b) => b[0] - a[0]);
+  if (d.length > 2) add('', `Le ${DOW[d[0][1]]} est votre meilleur jour de la semaine`,
+    `${fmt(d[0][0])} DH en moyenne, ${pct((d[0][0] / d.at(-1)[0] - 1) * 100)} de plus que le ${DOW[d.at(-1)[1]]} (${fmt(d.at(-1)[0])} DH).`);
+  if (t.ca > 0) add(t.charges / t.ca > .85 ? 'dn' : '', `Les charges représentent ${pct(t.charges / t.ca * 100)} du chiffre d'affaires`,
+    s.cats.length ? `Premier poste : ${esc(s.cats[0][0])}, ${fmt(s.cats[0][1])} DH (${pct(s.cats[0][1] / t.charges * 100)} des charges).` : '');
+  add(s.res >= 0 ? 'up' : 'dn', `${s.res >= 0 ? 'Bénéfice' : 'Perte'} de ${fmt(Math.abs(s.res))} DH`, `marge de ${pct(s.marge)} sur le chiffre d'affaires.`);
+  const dc = t.creditClient - t.creditPaye;
+  if (s.end.credit > 0) add(dc > 0 ? 'dn' : 'up', `${fmt(s.end.credit)} DH de crédit client à récupérer`,
+    dc ? `${dc > 0 ? 'en hausse de ' : 'en baisse de '}${fmt(Math.abs(dc))} DH ce mois (${fmt(t.creditClient)} DH accordés, ${fmt(t.creditPaye)} DH remboursés).` : 'stable ce mois.');
+  if (s.pertes > 0 && t.ca) add(s.pertes / t.ca > .03 ? 'dn' : '', `Remises, offerts, pertes et annulations : ${fmt(s.pertes)} DH`, `${pct(s.pertes / t.ca * 100)} du chiffre d'affaires.`);
+  const miss = s.all.filter(x => x <= s.ref && !(s.map[x]?.ca > 0)).length;
+  if (miss) add('', `${miss} jour${miss > 1 ? 's' : ''} sans vente saisie`, 'fermeture, ou saisie en retard : à vérifier avant de lire les moyennes.');
+  return o;
+}
+const insList = o => o.length
+  ? `<ul class="ins">${o.map(i => `<li><span class="ic ${i.k}">${i.k === 'up' ? '▲' : i.k === 'dn' ? '▼' : '•'}</span><span><b>${i.h}</b>${i.t ? ' — ' + i.t : ''}</span></li>`).join('')}</ul>`
+  : '<p class="empty">Aucune vente saisie pour ce mois : les constats apparaîtront dès la première journée saisie.</p>';
+
+// ---------- pages ----------
+const state = { page: location.hash.slice(1), ym: today().slice(0, 7), date: today(), year: new Date().getFullYear() };
+
+function dash() {
+  const st = stats(state.ym), t = st.t, eurDh = db.params.euro * db.params.taux;
+  const period = st.elapsed < st.all.length ? `1–${+st.ref.slice(8)} ` : '';
+  $('#tiles').innerHTML =
+    kpi('Chiffre d\'affaires — ' + mName(st.ym), fmt(t.ca) + ' DH',
+      st.delta == null ? `${st.act.length} jour(s) avec ventes` : `${dchip(st.delta)} vs ${period}${mName(st.prev)} (${fmt(st.p.ca)} DH)`, 'lead') +
+    kpi('Résultat (CA − charges)', signed(st.res), 'marge ' + pct(st.marge)) +
+    kpi('Charges du mois', fmt(t.charges), `dont ${fmt(t.dep)} payés en caisse` + (t.ca ? ` · ${pct(t.charges / t.ca * 100)} du CA` : '')) +
+    kpi('CA moyen par jour travaillé', fmt(st.avg), st.act.length + ' jour(s) avec ventes') +
+    kpi(st.proj ? 'Projection fin de mois' : 'Remises, offerts, pertes', st.proj ? fmt(st.proj) : fmt(st.pertes),
+      st.proj ? `au rythme des ${st.elapsed} premiers jours` : (t.ca ? pct(st.pertes / t.ca * 100) + ' du CA' : '')) +
+    kpi('Reste en caisse', fmt(st.end.reste), `au ${fd(st.ref)}` + (db.params.euro ? ` · dont ${fmt(db.params.euro)} € (${fmt(eurDh)} DH)` : '')) +
+    kpi('Crédit clients en cours', fmt(st.end.credit), 'à récupérer auprès des clients');
+  $('#dIns').innerHTML = insList(insights(st));
+  const days = st.all;
+  colChart($('#chDay'), days.map(d => +d.slice(8)), days.map(dLabel),
+    [{ name: 'CA', color: 'var(--s1)', data: days.map(d => st.map[d]?.ca || 0) }], st.avg);
+  $('#hbEnc').innerHTML = stackbar(st.mix);
+  $('#hbCh').innerHTML = hbars(st.cats);
+  colChart($('#chDow'), DOWS, DOW.map(d => 'En moyenne le ' + d), [{ name: 'CA moyen', color: 'var(--s1)', data: st.dowAvg }]);
+  $('#cumLeg').innerHTML = `<span><i style="background:var(--s1)"></i>${mName(st.ym)}</span><span><i style="background:var(--s2)"></i>${mName(st.prev)}</span>`;
+  colChart($('#chCum'), days.map(d => +d.slice(8)), days.map(d => 'Au ' + (+d.slice(8)) + ' du mois'),
+    [{ name: mName(st.ym), color: 'var(--s1)', data: st.cumA, line: 1 }, { name: mName(st.prev), color: 'var(--s2)', data: st.cumP, line: 1 }]);
+}
+
+function buildJourForm() {
+  $('#fJour').innerHTML = GROUPS.map(([g, title]) => `<fieldset><legend>${title}</legend><div class="flds">` +
+    F.filter(f => f[2] === g).map(([k, l, , h]) => `<label class="fld"><span>${l}</span><input name="${k}" type="number" step="0.01" inputmode="decimal" placeholder="0,00">${h ? `<small>${h}</small>` : ''}</label>`).join('') +
+    '</div></fieldset>').join('') + `<label class="fld"><span>Observation</span><textarea name="obs" rows="2"></textarea></label>`;
+}
+function saisie() {
+  $('#dDate').value = state.date;
+  const j = db.jours[state.date] || {};
+  for (const el of $('#fJour').elements) el.value = j[el.name] || '';
+  document.querySelector('#p-saisie .fCharge [name=date]').value = state.date;
+  live();
+}
+function live() {
+  const L = ledger(), r = L.find(x => x.date === state.date) || Object.fromEntries(NUM.map(k => [k, 0])), ym = state.date.slice(0, 7);
+  const st = at(L, state.date), mtd = sumBy(monthRows(L, ym).filter(x => x.date <= state.date), x => x.ca);
+  $('#live').innerHTML = `<div class="tl">CA du ${dLabel(state.date)}</div><div class="big">${fmt(r.ca)} <small style="font-size:16px">DH</small></div>
+    <div class="formula">= Espèce + Carte + Vir/Chéq + Glovo en ligne + Crédit client + Dépenses caisse</div>
+    ${kv('Dépenses caisse du jour', fmt(r.dep), 'ajoutées en bas de page')}
+    ${kv('Reçu par ' + RESP, fmt(r.recu), 'Espèce + Crédit payé')}
+    ${kv('Reste en caisse', fmt(st.reste), 'Reste veille + Reçu − Versement')}
+    ${kv('Crédit clients en cours', fmt(st.credit))}
+    ${kv('CA du mois à ce jour', fmt(mtd), mName(ym))}
+    ${kv('Toutes charges du jour', fmt(r.charges), 'caisse + banque')}`;
+  const ch = db.charges.filter(c => c.date === state.date);
+  $('#dayCh').innerHTML = ch.length ? chargeTable(ch, false) : '<p class="empty">Aucune dépense ce jour.</p>';
+}
+function chargeTable(list, withDate) {
+  return `<table><thead><tr>${withDate ? '<th>Date</th>' : ''}<th class="t">Catégorie</th><th class="t">Libellé</th><th class="t">Source</th><th>Montant</th><th></th></tr></thead><tbody>` +
+    list.map(c => `<tr>${withDate ? `<td>${fd(c.date)}</td>` : ''}<td class="t">${esc(c.cat)}</td><td class="t">${esc(c.lib)}</td><td class="t">${esc(c.source)}</td><td>${fmt(c.montant)}</td><td><button class="x" data-del="${esc(c.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
+    `</tbody><tfoot><tr><td colspan="${withDate ? 4 : 3}">Total</td><td>${fmt(sumBy(list, c => +c.montant))}</td><td></td></tr></tfoot></table>`;
+}
+
+function charges() {
+  const f = document.querySelector('#p-charges .fCharge');
+  if (!f.date.value.startsWith(state.ym)) f.date.value = today().startsWith(state.ym) ? today() : state.ym + '-01';
+  const list = db.charges.filter(c => c.date.startsWith(state.ym)).sort((a, b) => b.date.localeCompare(a.date));
+  const caisse = sumBy(list.filter(c => c.source === 'Caisse'), c => +c.montant);
+  $('#chTot').innerHTML = `<div class="big">${fmt(caisse + sumBy(list.filter(c => c.source !== 'Caisse'), c => +c.montant))} <small style="font-size:16px">DH</small></div>` +
+    kv('Payé en caisse', fmt(caisse)) + kv('Payé par banque', fmt(sumBy(list, c => +c.montant) - caisse)) + kv('Nombre de charges', list.length);
+  $('#chCat').innerHTML = hbars(chargesByCat(state.ym));
+  $('#chList').innerHTML = list.length ? chargeTable(list, true) : '<p class="empty">Aucune charge pour ' + mName(state.ym) + '.</p>';
+}
+
+function rapport() {
+  const st = stats(state.ym), L = st.L, ym = st.ym, t = st.t, p = db.params, days = monthDays(L, ym);
+  const endReste = days.filter(d => d.reste != null).at(-1)?.reste ?? at(L, ym + '-01').reste, eurDh = p.euro * p.taux;
+  const cell = (d, k) => k === 'date' ? fd(d.date) : k === 'reste' ? (d.reste == null ? '' : fmt(d.reste)) : !d.r ? '' : k === 'obs' ? esc(d.r.obs) : d.r[k] ? fmt(d.r[k]) : '';
+  const period = st.elapsed < st.all.length ? `1–${+st.ref.slice(8)} ` : '';
+  const ch = db.charges.filter(c => c.date.startsWith(ym)).sort((a, b) => a.date.localeCompare(b.date) || a.cat.localeCompare(b.cat));
+  $('#rapport').innerHTML = `
+  <div class="rhead"><h1>Suivi des Ventes TM — ${mName(ym)}</h1>
+    <div class="sub">Rapport mensuel · édité le ${fd(today())}<br>${st.act.length} jour(s) avec ventes sur ${st.all.length}</div></div>
+  <div class="kpis">
+    ${kpi('Chiffre d\'affaires', fmt(t.ca) + ' DH', st.delta == null ? mName(ym) : `${dchip(st.delta)} vs ${period}${mName(st.prev)}`, 'lead')}
+    ${kpi('Total des charges', fmt(t.charges), t.ca ? pct(t.charges / t.ca * 100) + ' du CA' : '')}
+    ${kpi('Résultat', signed(st.res), 'marge ' + pct(st.marge))}
+    ${kpi('CA moyen par jour travaillé', fmt(st.avg), st.act.length + ' jour(s) avec ventes')}
+    ${kpi('Reste en caisse', fmt(endReste), 'fin de période')}
+    ${kpi('Crédit clients en cours', fmt(st.end.credit), 'à récupérer')}
+  </div>
+  <div class="card"><h2>Ce qu'il faut retenir</h2>${insList(insights(st))}</div>
+  <div class="grid2">
+    <div class="card"><h2>D'où vient le chiffre d'affaires</h2>${stackbar(st.mix)}</div>
+    <div class="card"><h2>Charges par catégorie (DH)</h2>${st.cats.length ? hbars(st.cats) : '<p class="empty">Aucune charge ce mois.</p>'}</div>
+  </div>
+  <div class="card"><h2>Chiffre d'affaires par jour (DH) — la ligne pointillée est la moyenne du mois</h2><div id="rDay" class="chart"></div></div>
+  <div class="grid2">
+    <div class="card"><h2>CA moyen par jour de la semaine (DH)</h2><div id="rDow" class="chart"></div></div>
+    <div class="card"><h2>Caisse en fin de période</h2>
+      ${kv('Euro', `${fmt(p.euro)} € × ${p.taux} = ${fmt(eurDh)}`)}${kv('Dirhams', fmt(endReste - eurDh))}${kv('<b>Total général</b>', fmt(endReste))}${kv('Fonds de caisse', fmt(p.fondCaisse))}
+      ${kv('Versements à la banque', fmt(t.versement), 'sur le mois')}${kv('Crédit clients en cours', fmt(st.end.credit))}
+    </div>
+  </div>
+  <div class="card pbreak"><h2>Détail jour par jour<span class="noprint"> — cliquez une ligne pour la modifier</span></h2><div class="tw"><table>
+    <thead><tr>${RCOLS.map(([k, l]) => `<th class="${k === 'obs' ? 't' : ''}">${l}</th>`).join('')}</tr></thead>
+    <tbody>${days.map(d => { const wd = new Date(d.date + 'T00:00').getDay(); return `<tr class="click${wd === 0 ? ' we' : ''}" data-day="${d.date}">${RCOLS.map(([k]) => `<td class="${k === 'obs' ? 't' : ''}">${cell(d, k)}</td>`).join('')}</tr>`; }).join('')}</tbody>
+    <tfoot><tr>${RCOLS.map(([k]) => `<td>${k === 'date' ? 'Total DH' : k === 'reste' ? fmt(endReste) : k === 'obs' ? '' : fmt(t[k])}</td>`).join('')}</tr></tfoot>
+  </table></div></div>
+  <div class="card pbreak"><h2>Détail des charges du mois (${ch.length})</h2>
+    <div class="tw">${ch.length ? chargeTable(ch, true) : '<p class="empty">Aucune charge ce mois.</p>'}</div></div>`;
+  const dd = st.all;
+  colChart($('#rDay'), dd.map(d => +d.slice(8)), dd.map(dLabel), [{ name: 'CA', color: 'var(--s1)', data: dd.map(d => st.map[d]?.ca || 0) }], st.avg);
+  colChart($('#rDow'), DOWS, DOW.map(d => 'En moyenne le ' + d), [{ name: 'CA moyen', color: 'var(--s1)', data: st.dowAvg }]);
+}
+
+function yearData() {
+  const L = ledger(), Y = state.year;
+  return Array.from({ length: 12 }, (_, i) => {
+    const ym = `${Y}-${pad(i + 1)}`, rows = monthRows(L, ym), t = totals(rows);
+    return { ym, label: new Date(Y, i, 1).toLocaleDateString('fr-FR', { month: 'short' }), t, has: rows.length > 0, reste: at(L, daysOf(ym).at(-1)).reste };
+  });
+}
+const YCOLS = [['ca', 'CA'], ['esp', 'Espèce'], ['cb', 'Carte Crédit'], ['glovoLigne', 'Glovo/En ligne'], ['creditClient', 'Crédit Client'], ['dep', 'Dépense caisse'], ['charges', 'Total charges'], ['res', 'Résultat'], ['reste', 'Reste fin de mois']];
+function bilan() {
+  $('#yr').value = state.year;
+  const M = yearData(), T = totals(M.map(m => m.t)), v = (m, k) => k === 'res' ? m.t.ca - m.t.charges : k === 'reste' ? m.reste : m.t[k];
+  colChart($('#chYear'), M.map(m => m.label), M.map(m => mName(m.ym)), [{ name: 'CA', color: 'var(--s1)', data: M.map(m => m.t.ca) }, { name: 'Charges', color: 'var(--s2)', data: M.map(m => m.t.charges) }]);
+  $('#yTable').innerHTML = `<table><thead><tr><th>Mois</th>${YCOLS.map(c => `<th>${c[1]}</th>`).join('')}</tr></thead><tbody>` +
+    M.map(m => `<tr class="click" data-month="${m.ym}"><td>${mName(m.ym)}</td>${YCOLS.map(([k]) => `<td>${m.has ? (k === 'res' ? signed(v(m, k)) : fmt(v(m, k))) : '—'}</td>`).join('')}</tr>`).join('') +
+    `</tbody><tfoot><tr><td>Total ${state.year}</td>${YCOLS.map(([k]) => `<td>${k === 'res' ? signed(T.ca - T.charges) : k === 'reste' ? fmt(M.filter(m => m.has).at(-1)?.reste ?? 0) : fmt(T[k])}</td>`).join('')}</tr></tfoot></table>`;
+}
+
+function params() {
+  $('#pFields').innerHTML = PARAMS.map(([k, l, h]) => `<label class="fld"><span>${l}</span><input data-param="${k}" type="number" step="0.01" value="${db.params[k]}">${h ? `<small>${h}</small>` : ''}</label>`).join('');
+  $('#lastB').textContent = 'Dernière copie téléchargée : ' + (db.lastBackup ? fd(db.lastBackup) : 'jamais');
+  $('#fileInfo').innerHTML = !FS_OK ? 'Ouvrez l\'app avec Chrome ou Edge pour enregistrer dans un fichier.'
+    : fileH ? `Les données sont enregistrées automatiquement dans <b>${esc(fileH.name)}</b>. Vous pouvez l'ouvrir dans Excel pour les consulter (fermez-le avant de continuer la saisie).`
+    : 'Aucun fichier choisi : les données ne sont gardées que dans le navigateur.';
+  document.querySelector('.fsonly').hidden = !FS_OK;
+  $('#catList').innerHTML = [...db.cats].sort((a, b) => a.localeCompare(b, 'fr')).map(c => `<span class="chip">${esc(c)}<button class="x" data-delcat="${esc(c)}" title="Supprimer" aria-label="Supprimer ${esc(c)}">×</button></span>`).join('') || '<p class="empty">Aucune catégorie.</p>';
+}
+
+// ---------- Excel ----------
+function book(sheets) {
+  const wb = XLSX.utils.book_new();
+  for (const [n, aoa, cols] of sheets) { const ws = XLSX.utils.aoa_to_sheet(aoa); if (cols) ws['!cols'] = cols.map(w => ({ wch: w })); XLSX.utils.book_append_sheet(wb, ws, n); }
+  return wb;
+}
+const download = (name, sheets) => XLSX.writeFile(book(sheets), name);
+function exportMonth() {
+  const L = ledger(), ym = state.ym, days = monthDays(L, ym), t = totals(monthRows(L, ym)), p = db.params;
+  const endReste = days.filter(d => d.reste != null).at(-1)?.reste ?? 0, eurDh = p.euro * p.taux;
+  const val = (d, k) => k === 'date' ? fd(d.date) : k === 'reste' ? d.reste ?? '' : !d.r ? '' : k === 'obs' ? d.r.obs : d.r[k] || '';
+  const aoa = [['Suivi des Ventes TM — ' + mName(ym)], [], RCOLS.map(c => c[1]), ...days.map(d => RCOLS.map(([k]) => val(d, k))),
+    RCOLS.map(([k]) => k === 'date' ? 'Total dhs' : k === 'reste' ? endReste : k === 'obs' ? '' : t[k]), [],
+    ['Euro', p.euro, '× ' + p.taux, eurDh], ['DHS', endReste - eurDh], ['Total Général', endReste], ['Fonds Caisse', p.fondCaisse], [],
+    ['Total charges', t.charges], ['Résultat (CA − charges)', t.ca - t.charges]];
+  const ch = db.charges.filter(c => c.date.startsWith(ym)).sort((a, b) => a.date.localeCompare(b.date));
+  download(`rapport-${ym}.xlsx`, [[mName(ym), aoa, RCOLS.map(c => c[0] === 'obs' ? 30 : 12)],
+    ['Charges', [['Date', 'Catégorie', 'Libellé', 'Source', 'Montant'], ...ch.map(c => [fd(c.date), c.cat, c.lib, c.source, c.montant]), [], ['Total', '', '', '', t.charges]], [12, 22, 30, 10, 12]]]);
+}
+function exportYear() {
+  const M = yearData();
+  download(`bilan-${state.year}.xlsx`, [['Bilan ' + state.year, [['Mois', ...YCOLS.map(c => c[1])], ...M.map(m => [mName(m.ym), ...YCOLS.map(([k]) => !m.has ? '' : k === 'res' ? m.t.ca - m.t.charges : k === 'reste' ? m.reste : m.t[k])])], [16, ...YCOLS.map(() => 14)]]]);
+}
+// Le classeur de données : Journal + Charges + Paramètres sont relus par fromWorkbook, Calculs est pour lecture dans Excel
+function toWorkbook() {
+  const L = ledger();
+  return book([
+    ['Journal', [['Date', ...F.map(f => f[1]), 'Observation'], ...Object.keys(db.jours).sort().map(d => [d, ...F.map(f => +db.jours[d][f[0]] || 0), db.jours[d].obs || ''])], [12, ...F.map(() => 12), 30]],
+    ['Charges', [['Date', 'Catégorie', 'Libellé', 'Montant', 'Source'], ...[...db.charges].sort((a, b) => a.date.localeCompare(b.date)).map(c => [c.date, c.cat, c.lib, c.montant, c.source])], [12, 22, 30, 12, 10]],
+    ['Catégories', [['Catégorie'], ...db.cats.map(c => [c])], [26]],
+    ['Paramètres', [['Clé', 'Valeur'], ...Object.entries(db.params), ['savedAt', db.savedAt || 0]], [16, 14]],
+    ['Calculs', [['Date', 'CA', 'Dépense caisse', 'Reçu', 'Versement', 'Reste', 'Crédit en cours'], ...L.map(r => [r.date, r.ca, r.dep, r.recu, r.versement, r.reste, r.credit])], [12, 12, 14, 12, 12, 12, 14]],
+  ]);
+}
+function fromWorkbook(wb) {
+  const rows = n => wb.Sheets[n] && XLSX.utils.sheet_to_json(wb.Sheets[n], { defval: '' });
+  const J = rows('Journal'), C = rows('Charges'), P = rows('Paramètres'), K = rows('Catégories');
+  if (!J || !C) return null;
+  const nd = { ...DEF(), lastBackup: db.lastBackup };
+  for (const r of J) { const d = toIso(r.Date); if (!d) continue; const j = { obs: String(r.Observation || '') }; for (const [k, l] of F) j[k] = num(r[l]); nd.jours[d] = j; }
+  for (const r of C) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.charges.push({ id: uid(), date: d, cat: String(r['Catégorie'] || 'Autre'), lib: String(r['Libellé'] || ''), montant: num(r.Montant), source: r.Source === 'Banque' ? 'Banque' : 'Caisse' }); }
+  nd.cats = K ? [...new Set(K.map(r => String(r['Catégorie']).trim()).filter(Boolean))] : withUsed(nd.cats, nd.charges);
+  for (const r of P || []) { if (r['Clé'] in nd.params) nd.params[r['Clé']] = num(r.Valeur); if (r['Clé'] === 'savedAt') nd.savedAt = num(r.Valeur); }
+  return nd;
+}
+function backup() { XLSX.writeFile(toWorkbook(), `suivi-ventes-copie-${today()}.xlsx`); db.lastBackup = today(); save(); render(); }
+function toIso(v) {
+  if (typeof v === 'number') { const p = XLSX.SSF.parse_date_code(v); return p ? `${p.y}-${pad(p.m)}-${pad(p.d)}` : null; }
+  const s = String(v).trim(); let m;
+  if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})/))) return `${m[1]}-${m[2]}-${m[3]}`;
+  if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) return `${m[3]}-${pad(m[2])}-${pad(m[1])}`;
+  return null;
+}
+async function restore(file) {
+  if (!file) return;
+  if (!confirm('Remplacer TOUTES les données actuelles par celles du fichier « ' + file.name + ' » ?')) return;
+  try {
+    const nd = fromWorkbook(XLSX.read(await file.arrayBuffer()));
+    if (!nd) return alert('Fichier non reconnu : il faut une copie avec les feuilles « Journal » et « Charges ».');
+    try { localStorage.setItem(KEY + '.avant-restauration', JSON.stringify(db)); } catch { }
+    db = nd; save(); render();
+    alert(`Restauré : ${Object.keys(nd.jours).length} jour(s) et ${nd.charges.length} charge(s).`);
+  } catch (e) { alert('Lecture du fichier impossible : ' + e.message); }
+}
+
+// ---------- navigation & événements ----------
+const PAGES = { dash, saisie, charges, rapport, bilan, params };
+function render() {
+  if (!PAGES[state.page]) state.page = 'dash';
+  document.querySelectorAll('.page').forEach(s => s.hidden = s.id !== 'p-' + state.page);
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.p === state.page));
+  document.querySelectorAll('.ym').forEach(i => i.value = state.ym);
+  fillCats();
+  renderBanner();
+  PAGES[state.page]();
+}
+const NEW_CAT = '__nouvelle';
+function fillCats() {
+  const opts = [...db.cats].sort((a, b) => a.localeCompare(b, 'fr')).map(c => `<option>${esc(c)}</option>`).join('') + `<option value="${NEW_CAT}">➕ Nouvelle catégorie…</option>`;
+  document.querySelectorAll('select[name=cat]').forEach(s => { const v = s.value; s.innerHTML = opts; if (db.cats.includes(v)) s.value = v; });
+}
+function addCat(name) { // renvoie le nom enregistré (sans doublon, majuscules ignorées)
+  const c = String(name || '').trim();
+  if (!c) return null;
+  const found = db.cats.find(x => x.toLowerCase() === c.toLowerCase());
+  if (found) return found;
+  db.cats.push(c); save(); return c;
+}
+function renderBanner() {
+  const name = fileH ? `<b>${esc(fileH.name)}</b>` : '';
+  let h = '';
+  if (!FS_OK) h = `<div class="warn">⚠ Ce navigateur ne peut pas enregistrer dans un fichier : les données restent seulement dans le navigateur. <b>Ouvrez index.html avec Google Chrome ou Microsoft Edge.</b></div>`;
+  else if (!fileH) h = `<div>📄 <span><b>Où enregistrer les données ?</b> Créez un fichier Excel (de préférence dans le dossier de l'app) : chaque saisie y sera enregistrée automatiquement.</span>
+    <button class="btn pri" onclick="newFile()">Créer le fichier de données</button><button class="btn" onclick="openFile()">Ouvrir un fichier existant</button></div>`;
+  else if (fileState === 'reconnect') h = `<div>🔌 <span>Cliquez pour reconnecter le fichier de données ${name} (le navigateur demande l'autorisation à chaque ouverture).</span><button class="btn pri" onclick="reconnect()">Reconnecter</button></div>`;
+  else if (fileState === 'err') h = `<div class="warn">⚠ <span>Le fichier ${name} n'a pas pu être enregistré (${esc(fileErr)}). S'il est ouvert dans Excel, fermez-le. Les données restent gardées dans le navigateur.</span>
+    <button class="btn pri" onclick="writeFile()">Réessayer</button><button class="btn" onclick="newFile()">Choisir un autre fichier</button></div>`;
+  $('#banner').innerHTML = h;
+  $('#fileName').textContent = fileH && fileState === 'ok' ? '📄 ' + fileH.name : '';
+}
+const go = p => { state.page = p; history.replaceState(null, '', '#' + p); render(); scrollTo(0, 0); };
+const setDate = d => { if (!d) return; state.date = d; state.ym = d.slice(0, 7); saisie(); };
+
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => go(b.dataset.p));
+document.addEventListener('change', e => {
+  if (e.target.matches('.ym') && e.target.value) { state.ym = e.target.value; render(); }
+  if (e.target.name === 'cat' && e.target.value === NEW_CAT) {
+    const c = addCat(prompt('Nom de la nouvelle catégorie :'));
+    fillCats(); e.target.value = c || e.target.options[0].value;
+  }
+});
+$('#fCat').onsubmit = e => { e.preventDefault(); addCat(e.target.c.value); e.target.reset(); render(); };
+$('#dDate').onchange = e => setDate(e.target.value);
+$('#dPrev').onclick = () => setDate(addDays(state.date, -1));
+$('#dNext').onclick = () => setDate(addDays(state.date, 1));
+$('#dToday').onclick = () => setDate(today());
+$('#yr').onchange = e => { state.year = +e.target.value || state.year; bilan(); };
+$('#xMonth').onclick = exportMonth; $('#xYear').onclick = exportYear; $('#bSave').onclick = backup;
+$('#bLoad').onchange = e => { restore(e.target.files[0]); e.target.value = ''; };
+
+buildJourForm();
+$('#fJour').addEventListener('input', e => {
+  const k = e.target.name, j = (db.jours[state.date] ??= {});
+  j[k] = k === 'obs' ? e.target.value : e.target.value === '' ? '' : +e.target.value;
+  if (Object.values(j).every(v => !v)) delete db.jours[state.date];
+  save(); live();
+});
+document.addEventListener('submit', e => {
+  if (!e.target.matches('.fCharge')) return;
+  e.preventDefault();
+  const f = e.target.elements, m = num(f.montant.value);
+  if (!f.date.value || !(m > 0)) return alert('Indiquez une date et un montant supérieur à 0.');
+  if (f.cat.value === NEW_CAT) return alert('Choisissez une catégorie.');
+  db.charges.push({ id: uid(), date: f.date.value, cat: f.cat.value, lib: f.lib.value.trim(), montant: m, source: f.source.value });
+  save(); f.lib.value = ''; f.montant.value = ''; f.cat.focus(); render();
+});
+document.addEventListener('click', e => {
+  const dc = e.target.closest('[data-delcat]');
+  if (dc) { db.cats = db.cats.filter(c => c !== dc.dataset.delcat); save(); return render(); }
+  const del = e.target.closest('[data-del]'), day = e.target.closest('[data-day]'), mo = e.target.closest('[data-month]');
+  if (del) {
+    const c = db.charges.find(x => x.id === del.dataset.del);
+    if (c && confirm(`Supprimer la charge « ${c.cat} ${c.lib} » de ${fmt(c.montant)} DH ?`)) { db.charges = db.charges.filter(x => x !== c); save(); render(); }
+  } else if (day) { state.date = day.dataset.day; go('saisie'); }
+  else if (mo) { state.ym = mo.dataset.month; go('rapport'); }
+});
+document.addEventListener('input', e => { const k = e.target.dataset?.param; if (k) { db.params[k] = num(e.target.value); save(); } });
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => ['dash', 'bilan'].includes(state.page) && render(), 150); });
+
+// Auto-test des formules : ouvrir index.html?test
+if (location.search.includes('test')) {
+  const FIX = { jours: { '2026-10-01': { esp: 1000, cb: 500, glovoEsp: 999, glovoLigne: 200, creditClient: 100, creditPaye: 50, versement: 800 } },
+    charges: [{ date: '2026-10-01', montant: 150, source: 'Caisse' }, { date: '2026-10-01', montant: 300, source: 'Banque' }], cats: [], params: { soldeInitial: 100 } };
+  const [r] = ledger(FIX);
+  const checks = { 'CA': r.ca === 1950, 'Reçu': r.recu === 1050, 'Reste': r.reste === 350, 'Dépense caisse': r.dep === 150, 'Charges': r.charges === 450, 'Crédit': r.credit === 50 };
+  // le tableau de bord et le rapport lisent `db` : on l'échange le temps du test
+  const real = db; db = FIX;
+  const st = stats('2026-10');
+  checks['Total du mois'] = st.t.ca === 1950;
+  checks['Répartition du CA'] = sumBy(st.mix, m => m[1]) === st.t.ca;   // la barre empilée doit faire 100 % du CA
+  checks['CA cumulé'] = st.cumA.at(-1) === st.t.ca;
+  checks['Résultat'] = st.res === 1500 && Math.round(st.marge) === 77;
+  db = real;
+  const bad = Object.keys(checks).filter(k => !checks[k]);
+  alert(bad.length ? 'Auto-test ÉCHEC : ' + bad.join(', ') : 'Auto-test OK ✓');
+}
+render();
+initFile();
+</script>
+</body>
+</html>

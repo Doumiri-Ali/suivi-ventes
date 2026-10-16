@@ -1,0 +1,4 @@
+# Les données réelles ne doivent JAMAIS être publiées
+*.xlsx
+*.xls
+.DS_Store
