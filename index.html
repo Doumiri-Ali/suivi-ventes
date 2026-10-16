@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Suivi des Ventes</title>
-<!-- SheetJS 0.18.5 (copie locale, fonctionne hors ligne) : lecture/écriture du fichier Excel -->
+<!-- SheetJS 0.20.3 (copie locale, fonctionne hors ligne) : lecture/écriture du fichier Excel -->
 <script src="xlsx.full.min.js"></script>
 <style>
 :root{--bg:#f4f4f1;--surface:#fcfcfb;--field:#fff;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;--border:rgba(11,11,11,.10);
@@ -61,6 +61,7 @@ input,select,textarea{background:var(--field);border:1px solid var(--axis);borde
 input:focus,select:focus,textarea:focus{outline:2px solid var(--s1);outline-offset:-1px;border-color:transparent}
 .btn{background:var(--surface);border:1px solid var(--axis);border-radius:8px;padding:8px 14px;cursor:pointer}
 .btn:hover{background:var(--wash)}.btn.pri{background:var(--s1);border-color:var(--s1);color:#fff}
+a.btn{display:inline-block;text-decoration:none;color:var(--ink)}a.btn.pri{color:#fff}
 .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--axis);border-radius:999px;padding:3px 8px 3px 12px;margin:0 6px 8px 0;font-size:13.5px}
 .x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1}.x:hover{color:var(--bad)}
 .saisie{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
@@ -305,9 +306,36 @@ function load() {
     return DEF();
   }
 }
-let db = load(), savedT;
+// ---------- mode démonstration (?demo) ----------
+// Données fictives, reproductibles, calées sur la date du jour. Rien n'est enregistré :
+// un testeur voit immédiatement le tableau de bord et le rapport remplis.
+const DEMO = new URLSearchParams(location.search).has('demo');
+function demoData() {
+  const rnd = (x => () => (x = x * 16807 % 2147483647) / 2147483647)(42);
+  const d = { ...DEF(), params: { soldeInitial: 4200, fondCaisse: 2000, euro: 150, taux: 10 } };
+  const K = [.75, .9, .95, 1, 1.15, 1.45, 1.35];            // dimanche → samedi
+  const t = today(), cur = t.slice(0, 7);
+  for (const ym of [prevYm(cur), cur]) for (const iso of daysOf(ym)) {
+    if (iso > t) break;
+    const wd = new Date(iso + 'T00:00').getDay(), b = 3600 * K[wd] * (.82 + rnd() * .36) * (ym === cur ? 1.09 : 1), r = x => Math.round(b * x);
+    // charges fixes : dues même si le commerce est fermé ce jour-là
+    if (+iso.slice(8) === 5) for (const [c, v] of [['Salaires', 11800], ['Loyer', 6500], ['Électricité / Eau', 1450], ['Impôts / Taxes', 980]])
+      d.charges.push({ id: uid(), date: iso, cat: c, lib: '', montant: v, source: 'Banque' });
+    if (wd === 1 && rnd() < .5) continue;                   // fermé certains lundis
+    d.jours[iso] = { esp: r(.52), cb: r(.3), vir: rnd() < .2 ? r(.08) : 0, glovoEsp: r(.04), glovoLigne: r(.11),
+      creditClient: rnd() < .3 ? r(.07) : 0, creditPaye: rnd() < .25 ? r(.05) : 0, remise: rnd() < .4 ? r(.012) : 0,
+      offert: rnd() < .3 ? r(.008) : 0, perte: rnd() < .15 ? r(.01) : 0, annul: rnd() < .1 ? r(.006) : 0,
+      versement: wd === 6 ? r(2.1) : 0, obs: wd === 6 ? 'Versement hebdomadaire' : '' };
+    for (const [c, x] of [['Achats marchandises', .34], ['Fournitures', .05], ['Transport', .04], ['Entretien', .03]])
+      if (rnd() < (x > .3 ? .8 : .2)) d.charges.push({ id: uid(), date: iso, cat: c, lib: '', montant: r(x * (.7 + rnd() * .6)), source: 'Caisse' });
+  }
+  return d;
+}
+
+let db = DEMO ? demoData() : load(), savedT;
 function flash(msg) { $('#saved').textContent = msg; $('#saved').classList.add('on'); clearTimeout(savedT); savedT = setTimeout(() => $('#saved').classList.remove('on'), 1500); }
 function save() {
+  if (DEMO) return flash('Mode démonstration — rien n\'est enregistré');
   db.savedAt = Date.now();
   let local = true;
   try { localStorage.setItem(KEY, JSON.stringify(db)); } catch { local = false; }
@@ -342,10 +370,13 @@ async function useFile(h, mode) {
   save(); render();
 }
 const fail = e => { if (e.name !== 'AbortError') alert('Fichier : ' + e.message); };
+const demoBlock = () => DEMO && (alert('Mode démonstration : cliquez sur « Utiliser mes vraies données » pour enregistrer dans un fichier.'), true);
 async function newFile() {
+  if (demoBlock()) return;
   try { await useFile(await showSaveFilePicker({ suggestedName: 'donnees-suivi-ventes.xlsx', ...XLSX_PICK }), 'nouveau'); } catch (e) { fail(e); }
 }
 async function openFile() {
+  if (demoBlock()) return;
   if ((db.charges.length || Object.keys(db.jours).length) && !confirm('Les données du fichier vont remplacer celles affichées. Continuer ?')) return;
   try { const [h] = await showOpenFilePicker(XLSX_PICK); await useFile(h, 'ouvrir'); } catch (e) { fail(e); }
 }
@@ -363,7 +394,7 @@ async function writeFile() {
   renderBanner();
 }
 async function initFile() { // reprendre le fichier utilisé la dernière fois
-  if (!FS_OK) return;
+  if (!FS_OK || DEMO) return;
   try {
     const h = await idb('readonly', s => s.get('file'));
     if (!h) return;
@@ -656,7 +687,7 @@ function params() {
   $('#fileInfo').innerHTML = !FS_OK ? 'Ouvrez l\'app avec Chrome ou Edge pour enregistrer dans un fichier.'
     : fileH ? `Les données sont enregistrées automatiquement dans <b>${esc(fileH.name)}</b>. Vous pouvez l'ouvrir dans Excel pour les consulter (fermez-le avant de continuer la saisie).`
     : 'Aucun fichier choisi : les données ne sont gardées que dans le navigateur.';
-  document.querySelector('.fsonly').hidden = !FS_OK;
+  document.querySelector('.fsonly').hidden = !FS_OK || DEMO;
   $('#catList').innerHTML = [...db.cats].sort((a, b) => a.localeCompare(b, 'fr')).map(c => `<span class="chip">${esc(c)}<button class="x" data-delcat="${esc(c)}" title="Supprimer" aria-label="Supprimer ${esc(c)}">×</button></span>`).join('') || '<p class="empty">Aucune catégorie.</p>';
 }
 
@@ -751,7 +782,8 @@ function addCat(name) { // renvoie le nom enregistré (sans doublon, majuscules 
 function renderBanner() {
   const name = fileH ? `<b>${esc(fileH.name)}</b>` : '';
   let h = '';
-  if (!FS_OK) h = `<div class="warn">⚠ Ce navigateur ne peut pas enregistrer dans un fichier : les données restent seulement dans le navigateur. <b>Ouvrez index.html avec Google Chrome ou Microsoft Edge.</b></div>`;
+  if (DEMO) h = `<div>🧪 <span><b>Mode démonstration</b> — ces chiffres sont fictifs et générés automatiquement. Modifiez ce que vous voulez : rien n'est enregistré.</span><a class="btn pri" href="?">Utiliser mes vraies données</a></div>`;
+  else if (!FS_OK) h = `<div class="warn">⚠ Ce navigateur ne peut pas enregistrer dans un fichier : les données restent seulement dans le navigateur. <b>Ouvrez index.html avec Google Chrome ou Microsoft Edge.</b></div>`;
   else if (!fileH) h = `<div>📄 <span><b>Où enregistrer les données ?</b> Créez un fichier Excel (de préférence dans le dossier de l'app) : chaque saisie y sera enregistrée automatiquement.</span>
     <button class="btn pri" onclick="newFile()">Créer le fichier de données</button><button class="btn" onclick="openFile()">Ouvrir un fichier existant</button></div>`;
   else if (fileState === 'reconnect') h = `<div>🔌 <span>Cliquez pour reconnecter le fichier de données ${name} (le navigateur demande l'autorisation à chaque ouverture).</span><button class="btn pri" onclick="reconnect()">Reconnecter</button></div>`;
