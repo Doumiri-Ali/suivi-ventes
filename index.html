@@ -100,6 +100,16 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
 .rhead{display:none;align-items:flex-end;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:12px}
 .rhead h1{font-size:19px;line-height:1.1}.rhead .sub{color:var(--ink2);font-size:11px;margin-left:auto;text-align:right}
 .help{font-size:13.5px;color:var(--ink2)}
+.cg{margin-bottom:10px}.cg>b{display:block;font-size:13px;margin-bottom:6px}.cg small{color:var(--muted);font-weight:400}
+/* bilan « TABLE M » : mêmes blocs de couleur que la feuille du client */
+.bil td:first-child{white-space:normal;min-width:190px}.bil th.click{cursor:pointer}
+.bil .rev{--g:#2f5482}.bil .fix{--g:#8c2d2d}.bil .var{--g:#d9691e}
+.bil .bh td{background:var(--g);color:#fff;font-weight:700;letter-spacing:.4px}
+.bil .bs td{background:color-mix(in srgb,var(--g) 72%,var(--surface));color:#fff;font-weight:600;text-align:center}
+.bil .bl td{background:color-mix(in srgb,var(--g) 8%,var(--surface))}
+.bil .bt td{background:var(--g);color:#fff;font-weight:700}
+.bil .br td,.bil .bm td{background:color-mix(in srgb,#f2c94c 30%,var(--surface));font-weight:700}
+.bil td small{display:block;font-weight:400;font-size:11.5px;color:var(--ink2)}
 @media (max-width:860px){.saisie,.grid2{grid-template-columns:1fr}.live{position:static}.addc,.addc.wd,.addc.mv{grid-template-columns:1fr 1fr}.kpi.lead{grid-column:1/-1}}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -250,7 +260,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
   <div class="card"><h2>CA et charges par mois (DH)</h2>
     <div class="legend"><span><i style="background:var(--s1)"></i>CA</span><span><i style="background:var(--s2)"></i>Charges</span></div>
     <div id="chYear" class="chart"></div></div>
-  <div class="card"><div class="tw" id="yTable"></div></div>
+  <div class="card"><h2>Bilan TABLE M<span class="noprint"> — cliquez un mois pour ouvrir son rapport</span></h2><div class="tw" id="yTable"></div></div>
 </section>
 
 <section id="p-params" class="page" hidden>
@@ -269,9 +279,10 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
     </div>
   </div>
   <div class="card" style="margin-top:16px"><h2>Catégories de charges</h2>
-    <p class="help" style="margin-top:0">Ces catégories apparaissent dans la liste « Catégorie » des charges. Supprimer une catégorie ne change pas les charges déjà saisies.</p>
+    <p class="help" style="margin-top:0">Ce sont les lignes du bilan (TABLE M), rangées par groupe, et la liste « Catégorie » des charges.
+      Pour changer le groupe d'une catégorie, ajoutez-la à nouveau avec le bon groupe. Supprimer une catégorie ne change pas les charges déjà saisies.</p>
     <div id="catList"></div>
-    <form id="fCat" style="display:flex;gap:8px;max-width:440px;margin-top:8px"><input name="c" placeholder="Nouvelle catégorie" required style="flex:1"><button class="btn pri">Ajouter</button></form>
+    <form id="fCat" style="display:flex;flex-wrap:wrap;gap:8px;max-width:640px;margin-top:8px"><input name="c" placeholder="Nouvelle catégorie" required style="flex:1 1 200px"><select name="g" aria-label="Groupe"></select><button class="btn pri">Ajouter</button></form>
   </div>
 </section>
 </main>
@@ -300,7 +311,30 @@ const NUM = [...F.map(f => f[0]), 'dep', 'charges', 'ca', 'recu', 'entree', 'sor
 const RCOLS = [['date', 'Date'], ['ca', 'CA'], ['esp', 'Espèce'], ['cb', 'Carte Crédit'], ['vir', 'Vir/Chéq'], ['glovoEsp', 'Glovo/Espèce'], ['glovoLigne', 'Glovo/En ligne'],
   ['creditPaye', 'Crédit Payé'], ['creditClient', 'Crédit Client'], ['remise', 'Remise'], ['offert', 'Offert'], ['perte', 'Perte'], ['annul', 'Annulation'],
   ['dep', 'Dépense'], ['recu', 'Reçu par ' + RESP], ['versement', 'Versement'], ['entree', 'Entrée caisse'], ['sortie', 'Sortie caisse'], ['reste', 'Reste'], ['obs', 'Observation']];
-const CATS = ['Achats marchandises', 'Salaires', 'Loyer', 'Électricité / Eau', 'Gaz', 'Fournitures', 'Transport', 'Entretien', 'Impôts / Taxes', 'Autre'];
+// Catégories de charges = lignes du bilan « TABLE M », par groupe, dans l'ordre de la feuille du client.
+// Tous les groupes sont des dépenses fixes, sauf VAR.
+const CATS = {
+  'Logement': ['Loyer'],
+  'Marketing': ['ADS'],
+  'Charge Personnel et cotisations': ['Les Salaires', 'Cotisation CNSS'],
+  'Impôts & Frais bancaires': ['Impôt sur le revenu', 'Impôt sur Loyer', 'DGI', 'TVA', 'IS', 'Frais bancaires & Commission', 'Autre impôt ou taxe', 'Débit de boisson', 'Commission CMI'],
+  'Charges & Abonnements': ['Eau', 'Électricité', 'Gaz', 'Fibre optique, internet & téléphone', 'Boucherie', 'Volaille', 'Poisson', 'Produits alimentaires', 'Limonades',
+    'Eaux minérales', 'Œufs', 'Légumes & Fruits', 'Les salades', 'Glace', 'Glaçons', 'Fromage', 'Café', 'Boulangerie', 'Olives', 'Emballage (sacs, boîtes, couverts)',
+    'Cire (allumage des bougies)', 'Service', 'Petit outillage', 'Produits d\'hygiène', 'Traitement hygiène', 'Matériel', 'Matériel informatique', 'Fournitures électriques',
+    'Petit matériel', 'Tailleur tenue TM', 'Location machine à café', 'Honoraires comptable', 'Fournitures de bureau', 'Grand ménage', 'Gasoil', 'JTR innovation'],
+  'Dépenses variables': ['Pourboire', 'Taxe Rokhass', 'Frais architecte', 'Dépenses Villa Oussama', 'Peinture Table M', 'Réparation du matériel', 'Publicité', 'Hôpital / personnel', 'Divers'],
+};
+const GRPS = Object.keys(CATS), VAR = 'Dépenses variables', DEF_GRP = 'Charges & Abonnements';
+const defCats = () => ({ cats: Object.values(CATS).flat(), catGrp: Object.fromEntries(Object.entries(CATS).flatMap(([g, cs]) => cs.map(c => [c, g]))) });
+const grpOf = c => GRPS.includes(db.catGrp[c]) ? db.catGrp[c] : DEF_GRP;
+// Données d'avant les groupes : lignes de la TABLE M + anciennes catégories encore utilisées ou ajoutées à la main
+const OLD_CATS = ['Achats marchandises', 'Salaires', 'Loyer', 'Électricité / Eau', 'Gaz', 'Fournitures', 'Transport', 'Entretien', 'Impôts / Taxes', 'Autre'];
+function migrateCats(cats, charges) {
+  const m = defCats(), used = new Set(charges.map(c => c.cat).filter(Boolean));
+  m.cats = [...new Set([...m.cats, ...cats.filter(c => used.has(c) || !OLD_CATS.includes(c)), ...used])];
+  Object.assign(m.catGrp, { 'Salaires': 'Charge Personnel et cotisations', 'Impôts / Taxes': 'Impôts & Frais bancaires', 'Autre': VAR });
+  return m;
+}
 const PARAMS = [['soldeInitial', 'Reste de départ (DH)', 'Argent déjà en main avant le 1er jour saisi'], ['fondCaisse', 'Fond de caisse (DH)', ''],
   ['euro', 'Dont en Euro (€)', 'Partie du Reste gardée en euros'], ['taux', 'Taux Euro → DH', 'Dans l\'Excel : 10']];
 
@@ -325,7 +359,7 @@ const sumBy = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
 
 // ---------- stockage ----------
 const withUsed = (cats, charges = []) => [...new Set([...cats, ...charges.map(c => c.cat)])];
-const DEF = () => ({ jours: {}, charges: [], mvts: [], fours: [], paiements: [], cats: [...CATS], params: { soldeInitial: 0, fondCaisse: 0, euro: 0, taux: 10 }, lastBackup: null });
+const DEF = () => ({ jours: {}, charges: [], mvts: [], fours: [], paiements: [], ...defCats(), params: { soldeInitial: 0, fondCaisse: 0, euro: 0, taux: 10 }, lastBackup: null });
 // Les données vont dans un fichier Excel choisi par l'utilisateur (Chrome / Edge).
 // Le navigateur en garde aussi une copie (localStorage), utilisée si le fichier n'est pas accessible.
 function load() {
@@ -334,8 +368,7 @@ function load() {
   if (!raw) return DEF();
   try {
     const d = JSON.parse(raw), def = DEF();
-    // anciennes données sans liste : catégories par défaut + celles déjà utilisées
-    return { ...def, ...d, cats: d.cats || withUsed(def.cats, d.charges), params: { ...def.params, ...d.params } };
+    return { ...def, ...d, ...(d.catGrp ? {} : migrateCats(d.cats || [], d.charges || [])), params: { ...def.params, ...d.params } };
   } catch (e) {
     // on garde une copie des données illisibles au lieu de les écraser
     try { localStorage.setItem(KEY + '.illisible.' + Date.now(), raw); } catch { }
@@ -357,21 +390,21 @@ function demoData() {
     if (iso > t) break;
     const wd = new Date(iso + 'T00:00').getDay(), b = 3600 * K[wd] * (.82 + rnd() * .36) * (ym === cur ? 1.09 : 1), r = x => Math.round(b * x);
     // charges fixes : dues même si le commerce est fermé ce jour-là
-    if (+iso.slice(8) === 5) for (const [c, v] of [['Salaires', 11800], ['Loyer', 6500], ['Électricité / Eau', 1450], ['Impôts / Taxes', 980]])
+    if (+iso.slice(8) === 5) for (const [c, v] of [['Les Salaires', 11800], ['Loyer', 6500], ['Électricité', 1450], ['Cotisation CNSS', 980]])
       d.charges.push({ id: uid(), date: iso, cat: c, lib: '', montant: v, source: 'Banque' });
     if (wd === 1 && rnd() < .5) continue;                   // fermé certains lundis
     if (rnd() < .12) d.mvts.push({ id: uid(), date: iso, type: 'Sortie', montant: 500 * Math.ceil(rnd() * 4), motif: 'Retrait personnel' });
-    const fac = (four, x, p) => d.charges.push({ id: uid(), date: iso, cat: 'Achats marchandises', lib: 'Facture', montant: r(x), source: 'Fournisseur', four, ref: p + iso.slice(5).replace('-', '') });
-    if (wd === 2) fac('Boucherie Atlas', .5, 'BA-');
-    if (wd === 4) fac('Grossiste Boissons', .35, 'GB-');
+    const fac = (four, cat, x, p) => d.charges.push({ id: uid(), date: iso, cat, lib: 'Facture', montant: r(x), source: 'Fournisseur', four, ref: p + iso.slice(5).replace('-', '') });
+    if (wd === 2) fac('Boucherie Atlas', 'Boucherie', .5, 'BA-');
+    if (wd === 4) fac('Grossiste Boissons', 'Limonades', .35, 'GB-');
     if (wd === 5) d.paiements.push({ id: uid(), date: iso, four: 'Boucherie Atlas', montant: r(.45), mode: 'Banque', ref: 'Chèque' });
     if (+iso.slice(8) === 15) d.paiements.push({ id: uid(), date: iso, four: 'Grossiste Boissons', montant: 3000, mode: 'Banque', ref: 'Virement' });
     d.jours[iso] = { esp: r(.52), cb: r(.3), vir: rnd() < .2 ? r(.08) : 0, glovoEsp: r(.04), glovoLigne: r(.11),
       creditClient: rnd() < .3 ? r(.07) : 0, creditPaye: rnd() < .25 ? r(.05) : 0, remise: rnd() < .4 ? r(.012) : 0,
       offert: rnd() < .3 ? r(.008) : 0, perte: rnd() < .15 ? r(.01) : 0, annul: rnd() < .1 ? r(.006) : 0,
       versement: wd === 6 ? r(2.1) : 0, obs: wd === 6 ? 'Versement hebdomadaire' : '' };
-    for (const [c, x] of [['Achats marchandises', .34], ['Fournitures', .05], ['Transport', .04], ['Entretien', .03]])
-      if (rnd() < (x > .3 ? .8 : .2)) d.charges.push({ id: uid(), date: iso, cat: c, lib: '', montant: r(x * (.7 + rnd() * .6)), source: 'Caisse' });
+    for (const [c, x] of [['Légumes & Fruits', .2], ['Produits alimentaires', .14], ['Gasoil', .04], ['Produits d\'hygiène', .03], ['Divers', .03]])
+      if (rnd() < (x > .1 ? .8 : .2)) d.charges.push({ id: uid(), date: iso, cat: c, lib: '', montant: r(x * (.7 + rnd() * .6)), source: 'Caisse' });
   }
   return d;
 }
@@ -758,6 +791,7 @@ function rapport() {
       ${kv('Versements à la banque', fmt(t.versement), 'sur le mois')}${kv('Entrées / sorties de caisse', `+${fmt(t.entree)} / −${fmt(t.sortie)}`, 'sur le mois, hors CA')}${t.payF ? kv('Fournisseurs payés en espèces', fmt(t.payF), 'compris dans la colonne Dépense') : ''}${kv('Crédit clients en cours', fmt(st.end.credit))}
     </div>
   </div>
+  <div class="card pbreak"><h2>Bilan du mois</h2><div class="tw">${bilanTable([ym], [`<th>${mName(ym)}</th>`])}</div></div>
   <div class="card pbreak"><h2>Détail jour par jour<span class="noprint"> — cliquez une ligne pour la modifier</span></h2><div class="tw"><table>
     <thead><tr>${RCOLS.map(([k, l]) => `<th class="${k === 'obs' ? 't' : ''}">${l}</th>`).join('')}</tr></thead>
     <tbody>${days.map(d => { const wd = new Date(d.date + 'T00:00').getDay(); return `<tr class="click${wd === 0 ? ' we' : ''}" data-day="${d.date}">${RCOLS.map(([k]) => `<td class="${k === 'obs' ? 't' : ''}">${cell(d, k)}</td>`).join('')}</tr>`; }).join('')}</tbody>
@@ -774,17 +808,52 @@ function yearData() {
   const L = ledger(), Y = state.year;
   return Array.from({ length: 12 }, (_, i) => {
     const ym = `${Y}-${pad(i + 1)}`, rows = monthRows(L, ym), t = totals(rows);
-    return { ym, label: new Date(Y, i, 1).toLocaleDateString('fr-FR', { month: 'short' }), t, has: rows.length > 0, reste: at(L, daysOf(ym).at(-1)).reste };
+    return { ym, label: new Date(Y, i, 1).toLocaleDateString('fr-FR', { month: 'short' }), t, has: rows.length > 0 };
   });
 }
-const YCOLS = [['ca', 'CA'], ['esp', 'Espèce'], ['cb', 'Carte Crédit'], ['glovoLigne', 'Glovo/En ligne'], ['creditClient', 'Crédit Client'], ['dep', 'Dépense caisse'], ['charges', 'Total charges'], ['res', 'Résultat'], ['reste', 'Reste fin de mois']];
+// ---------- bilan « TABLE M » (présentation de la feuille du client) ----------
+// TOTAL REVENUS = C.A ; RESTE = revenus − dépenses fixes ; RESTE AU TOTAL = RESTE − dépenses variables (= résultat)
+const REV = [['ca', 'C.A'], ['esp', 'CV Espèce'], ['cb', 'CV Carte Crédit'], ['vir', 'CV Vir/Chèque'], ['creditClient', 'Crédit Client'], ['creditPaye', 'Crédit payé'], ['glovoLigne', 'Glovo/En ligne'], ['glovoEsp', 'Glovo/Espèce']];
+function bilanRows(keys) { // une colonne par clé : 'AAAA-MM' (un mois) ou 'AAAA' (l'année)
+  const L = ledger(), T = keys.map(k => totals(monthRows(L, k))), C = keys.map(k => Object.fromEntries(chargesByCat(k)));
+  const cats = withUsed(db.cats, db.charges), rows = [], line = (label, vals, cls) => rows.push({ k: 'l', label, vals, cls });
+  const block = (title, gs, cls) => {
+    rows.push({ k: 'h', label: title, cls });
+    const sum = keys.map(() => 0);
+    for (const g of gs) {
+      if (gs.length > 1) rows.push({ k: 's', label: g, cls });
+      for (const c of cats.filter(c => grpOf(c) === g)) { const v = C.map(m => m[c] || 0); v.forEach((x, i) => sum[i] += x); line(c, v, cls); }
+    }
+    rows.push({ k: 't', label: 'TOTAL ' + title, vals: sum, cls });
+    return sum;
+  };
+  rows.push({ k: 'h', label: 'REVENUS', cls: 'rev' });
+  for (const [k, l] of REV) line(l, T.map(t => t[k]), 'rev');
+  line('Fond de caisse', keys.map(() => +db.params.fondCaisse || 0), 'rev');
+  const rev = T.map(t => t.ca);
+  rows.push({ k: 't', label: 'TOTAL REVENUS', vals: rev, cls: 'rev' });
+  const fix = block('DÉPENSES FIXES', GRPS.filter(g => g !== VAR), 'fix'), r1 = rev.map((v, i) => v - fix[i]);
+  rows.push({ k: 'r', label: 'RESTE', sub: 'pour les dépenses variables', vals: r1 });
+  const vr = block('DÉPENSES VARIABLES', [VAR], 'var'), r2 = r1.map((v, i) => v - vr[i]);
+  rows.push({ k: 'r', label: 'RESTE AU TOTAL', sub: 'pour épargner ou dépenses exceptionnelles', vals: r2 });
+  rows.push({ k: 'm', label: 'Marge en %', vals: r2.map((v, i) => rev[i] ? v / rev[i] * 100 : null) });
+  return rows;
+}
+function bilanTable(keys, heads) {
+  const cell = (r, v) => v == null ? '—' : r.k === 'm' ? pct(v) : r.k === 'r' ? signed(v) : r.k === 'l' && !v ? '' : fmt(v);
+  return `<table class="bil"><thead><tr><th>TABLE M</th>${heads.join('')}</tr></thead><tbody>` + bilanRows(keys).map(r => r.vals
+    ? `<tr class="b${r.k} ${r.cls || ''}"><td>${esc(r.label)}${r.sub ? `<small>${r.sub}</small>` : ''}</td>${r.vals.map(v => `<td>${cell(r, v)}</td>`).join('')}</tr>`
+    : `<tr class="b${r.k} ${r.cls}"><td colspan="${keys.length + 1}">${esc(r.label)}</td></tr>`).join('') + '</tbody></table>';
+}
+const bilanAoa = (keys, heads) => [['TABLE M', ...heads], ...bilanRows(keys).map(r => !r.vals ? [r.label]
+  : [r.label + (r.sub ? ' ' + r.sub : ''), ...r.vals.map(v => v == null ? '' : r.k === 'm' ? Math.round(v * 10) / 10 : r.k === 'l' && !v ? '' : v)])];
+const yearKeys = () => { const has = yearData().filter(m => m.has).map(m => m.ym); return has.length ? [...has, String(state.year)] : []; };
 function bilan() {
   $('#yr').value = state.year;
-  const M = yearData(), T = totals(M.map(m => m.t)), v = (m, k) => k === 'res' ? m.t.ca - m.t.charges : k === 'reste' ? m.reste : m.t[k];
+  const M = yearData(), keys = yearKeys();
   colChart($('#chYear'), M.map(m => m.label), M.map(m => mName(m.ym)), [{ name: 'CA', color: 'var(--s1)', data: M.map(m => m.t.ca) }, { name: 'Charges', color: 'var(--s2)', data: M.map(m => m.t.charges) }]);
-  $('#yTable').innerHTML = `<table><thead><tr><th>Mois</th>${YCOLS.map(c => `<th>${c[1]}</th>`).join('')}</tr></thead><tbody>` +
-    M.map(m => `<tr class="click" data-month="${m.ym}"><td>${mName(m.ym)}</td>${YCOLS.map(([k]) => `<td>${m.has ? (k === 'res' ? signed(v(m, k)) : fmt(v(m, k))) : '—'}</td>`).join('')}</tr>`).join('') +
-    `</tbody><tfoot><tr><td>Total ${state.year}</td>${YCOLS.map(([k]) => `<td>${k === 'res' ? signed(T.ca - T.charges) : k === 'reste' ? fmt(M.filter(m => m.has).at(-1)?.reste ?? 0) : fmt(T[k])}</td>`).join('')}</tr></tfoot></table>`;
+  $('#yTable').innerHTML = !keys.length ? `<p class="empty">Aucune donnée pour ${state.year}.</p>`
+    : bilanTable(keys, keys.map(k => k.length > 4 ? `<th class="click" data-month="${k}">${mName(k)}</th>` : `<th>Total ${k}</th>`));
 }
 
 function params() {
@@ -794,7 +863,8 @@ function params() {
     : fileH ? `Les données sont enregistrées automatiquement dans <b>${esc(fileH.name)}</b>. Vous pouvez l'ouvrir dans Excel pour les consulter (fermez-le avant de continuer la saisie).`
     : 'Aucun fichier choisi : les données ne sont gardées que dans le navigateur.';
   document.querySelector('.fsonly').hidden = !FS_OK || DEMO;
-  $('#catList').innerHTML = [...db.cats].sort((a, b) => a.localeCompare(b, 'fr')).map(c => `<span class="chip">${esc(c)}<button class="x" data-delcat="${esc(c)}" title="Supprimer" aria-label="Supprimer ${esc(c)}">×</button></span>`).join('') || '<p class="empty">Aucune catégorie.</p>';
+  $('#catList').innerHTML = GRPS.map(g => `<div class="cg"><b>${esc(g)}${g === VAR ? '' : ' <small>(dépenses fixes)</small>'}</b>` +
+    (db.cats.filter(c => grpOf(c) === g).map(c => `<span class="chip">${esc(c)}<button class="x" data-delcat="${esc(c)}" title="Supprimer" aria-label="Supprimer ${esc(c)}">×</button></span>`).join('') || '<span class="empty">—</span>') + '</div>').join('');
 }
 
 // ---------- Excel ----------
@@ -813,12 +883,13 @@ function exportMonth() {
     ['Euro', p.euro, '× ' + p.taux, eurDh], ['DHS', endReste - eurDh], ['Total Général', endReste], ['Fonds Caisse', p.fondCaisse], [],
     ['Total charges', t.charges], ['Résultat (CA − charges)', t.ca - t.charges]];
   const ch = db.charges.filter(c => c.date.startsWith(ym)).sort((a, b) => a.date.localeCompare(b.date));
-  download(`rapport-${ym}.xlsx`, [[mName(ym), aoa, RCOLS.map(c => c[0] === 'obs' ? 30 : 12)],
+  download(`rapport-${ym}.xlsx`, [[mName(ym), aoa, RCOLS.map(c => c[0] === 'obs' ? 30 : 12)], ['Bilan', bilanAoa([ym], [mName(ym)]), [44, 16]],
     ['Charges', [['Date', 'Catégorie', 'Libellé', 'Fournisseur', 'Source', 'Montant'], ...ch.map(c => [fd(c.date), c.cat, c.lib, c.four || '', c.source, c.montant]), [], ['Total', '', '', '', '', t.charges]], [12, 22, 30, 22, 11, 12]]]);
 }
 function exportYear() {
-  const M = yearData();
-  download(`bilan-${state.year}.xlsx`, [['Bilan ' + state.year, [['Mois', ...YCOLS.map(c => c[1])], ...M.map(m => [mName(m.ym), ...YCOLS.map(([k]) => !m.has ? '' : k === 'res' ? m.t.ca - m.t.charges : k === 'reste' ? m.reste : m.t[k])])], [16, ...YCOLS.map(() => 14)]]]);
+  const keys = yearKeys();
+  if (!keys.length) return alert('Aucune donnée pour ' + state.year + '.');
+  download(`bilan-${state.year}.xlsx`, [['Bilan ' + state.year, bilanAoa(keys, keys.map(k => k.length > 4 ? mName(k) : 'Total ' + k)), [44, ...keys.map(() => 15)]]]);
 }
 // Le classeur de données : Journal + Charges + Paramètres sont relus par fromWorkbook, Calculs est pour lecture dans Excel
 function toWorkbook() {
@@ -829,7 +900,7 @@ function toWorkbook() {
     ['Fournisseurs', [['Nom', 'Téléphone', 'Solde de départ', 'Solde actuel'], ...db.fours.map(f => [f.nom, f.tel, f.solde0, compte(f.nom).solde])], [26, 16, 14, 14]],
     ['Paiements', [['Date', 'Fournisseur', 'Montant', 'Mode', 'Référence'], ...[...db.paiements].sort((a, b) => a.date.localeCompare(b.date)).map(p => [p.date, p.four, p.montant, p.mode, p.ref])], [12, 26, 12, 10, 14]],
     ['Caisse', [['Date', 'Type', 'Montant', 'Motif'], ...[...db.mvts].sort((a, b) => a.date.localeCompare(b.date)).map(m => [m.date, m.type, m.montant, m.motif])], [12, 10, 12, 30]],
-    ['Catégories', [['Catégorie'], ...db.cats.map(c => [c])], [26]],
+    ['Catégories', [['Catégorie', 'Groupe'], ...db.cats.map(c => [c, grpOf(c)])], [34, 30]],
     ['Paramètres', [['Clé', 'Valeur'], ...Object.entries(db.params), ['savedAt', db.savedAt || 0]], [16, 14]],
     ['Calculs', [['Date', 'CA', 'Dépense caisse', 'Reçu', 'Versement', 'Entrée caisse', 'Sortie caisse', 'Reste', 'Crédit en cours'], ...L.map(r => [r.date, r.ca, r.dep, r.recu, r.versement, r.entree, r.sortie, r.reste, r.credit])], [12, 12, 14, 12, 12, 13, 13, 12, 14]],
   ]);
@@ -846,7 +917,9 @@ function fromWorkbook(wb) {
   nd.fours = (FO || []).map(r => ({ nom: String(r.Nom || '').trim(), tel: String(r['Téléphone'] || ''), solde0: num(r['Solde de départ']) })).filter(f => f.nom);
   for (const n of [...nd.charges.map(c => c.four), ...nd.paiements.map(p => p.four)]) if (n && !nd.fours.some(f => f.nom === n)) nd.fours.push({ nom: n, tel: '', solde0: 0 });
   for (const r of M || []) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.mvts.push({ id: uid(), date: d, type: r.Type === 'Entrée' ? 'Entrée' : 'Sortie', montant: num(r.Montant), motif: String(r.Motif || '') }); }
-  nd.cats = K ? [...new Set(K.map(r => String(r['Catégorie']).trim()).filter(Boolean))] : withUsed(nd.cats, nd.charges);
+  const names = K ? [...new Set(K.map(r => String(r['Catégorie']).trim()).filter(Boolean))] : [];
+  if ((XLSX.utils.sheet_to_json(wb.Sheets['Catégories'] || {}, { header: 1 })[0] || []).includes('Groupe')) { nd.cats = names; nd.catGrp = Object.fromEntries(K.map(r => [String(r['Catégorie']).trim(), String(r.Groupe)])); }
+  else Object.assign(nd, migrateCats(names, nd.charges));
   for (const r of P || []) { if (r['Clé'] in nd.params) nd.params[r['Clé']] = num(r.Valeur); if (r['Clé'] === 'savedAt') nd.savedAt = num(r.Valeur); }
   return nd;
 }
@@ -883,15 +956,18 @@ function render() {
 }
 const NEW_CAT = '__nouvelle';
 function fillCats() {
-  const opts = [...db.cats].sort((a, b) => a.localeCompare(b, 'fr')).map(c => `<option>${esc(c)}</option>`).join('') + `<option value="${NEW_CAT}">➕ Nouvelle catégorie…</option>`;
+  const opts = GRPS.map(g => { const cs = db.cats.filter(c => grpOf(c) === g).sort((a, b) => a.localeCompare(b, 'fr')); return cs.length ? `<optgroup label="${esc(g)}">${cs.map(c => `<option>${esc(c)}</option>`).join('')}</optgroup>` : ''; }).join('') +
+    `<option value="${NEW_CAT}">➕ Nouvelle catégorie…</option>`;
   document.querySelectorAll('select[name=cat]').forEach(s => { const v = s.value; s.innerHTML = opts; if (db.cats.includes(v)) s.value = v; });
 }
-function addCat(name) { // renvoie le nom enregistré (sans doublon, majuscules ignorées)
+// renvoie le nom enregistré (sans doublon, majuscules ignorées) ; avec un groupe, une catégorie existante change de groupe
+function addCat(name, grp) {
   const c = String(name || '').trim();
   if (!c) return null;
   const found = db.cats.find(x => x.toLowerCase() === c.toLowerCase());
-  if (found) return found;
-  db.cats.push(c); save(); return c;
+  if (found && !grp) return found;
+  if (!found) db.cats.push(c);
+  db.catGrp[found || c] = grp || DEF_GRP; save(); return found || c;
 }
 const NEW_FOUR = '__nouveau';
 function fillFours() {
@@ -938,7 +1014,8 @@ document.addEventListener('change', e => {
   const k = e.target.dataset?.fset, fo = k && db.fours.find(x => x.nom === state.four);
   if (fo) { fo[k] = k === 'tel' ? e.target.value.trim() : num(e.target.value); save(); render(); }
 });
-$('#fCat').onsubmit = e => { e.preventDefault(); addCat(e.target.c.value); e.target.reset(); render(); };
+$('#fCat').g.innerHTML = GRPS.map(g => `<option${g === DEF_GRP ? ' selected' : ''}>${esc(g)}</option>`).join('');
+$('#fCat').onsubmit = e => { e.preventDefault(); addCat(e.target.c.value, e.target.g.value); e.target.c.value = ''; render(); };
 $('#fMvt').onsubmit = e => {
   e.preventDefault();
   const f = e.target.elements, m = num(f.montant.value);
@@ -1005,7 +1082,8 @@ let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() 
 // Auto-test des formules : ouvrir index.html?test
 if (location.search.includes('test')) {
   const FIX = { jours: { '2026-10-01': { esp: 1000, cb: 500, glovoEsp: 999, glovoLigne: 200, creditClient: 100, creditPaye: 50, versement: 800 } },
-    charges: [{ date: '2026-10-01', montant: 150, source: 'Caisse' }, { date: '2026-10-01', montant: 300, source: 'Banque' }], cats: [], params: { soldeInitial: 100 },
+    charges: [{ date: '2026-10-01', cat: 'Loyer', montant: 150, source: 'Caisse' }, { date: '2026-10-01', cat: 'Divers', montant: 300, source: 'Banque' }],
+    cats: ['Loyer', 'Divers'], catGrp: { Loyer: 'Logement', Divers: VAR }, params: { soldeInitial: 100 },
     mvts: [{ date: '2026-10-01', type: 'Sortie', montant: 200 }, { date: '2026-10-01', type: 'Entrée', montant: 50 }, { date: '2026-10-02', type: 'Sortie', montant: 100 }], fours: [], paiements: [] };
   const [r, r2] = ledger(FIX);
   const checks = { 'CA': r.ca === 1950, 'Reçu': r.recu === 1050, 'Reste': r.reste === 200, 'Sortie seule': r2.reste === 100 && r2.ca === 0, 'Dépense caisse': r.dep === 150, 'Charges': r.charges === 450, 'Crédit': r.credit === 50 };
@@ -1016,7 +1094,11 @@ if (location.search.includes('test')) {
   checks['Répartition du CA'] = sumBy(st.mix, m => m[1]) === st.t.ca;   // la barre empilée doit faire 100 % du CA
   checks['CA cumulé'] = st.cumA.at(-1) === st.t.ca;
   checks['Résultat'] = st.res === 1500 && Math.round(st.marge) === 77;
+  const B = bilanRows(['2026-10']), bv = l => B.find(x => x.label === l).vals[0];
+  checks['Bilan TABLE M'] = bv('TOTAL REVENUS') === 1950 && bv('TOTAL DÉPENSES FIXES') === 150 && bv('TOTAL DÉPENSES VARIABLES') === 300 && bv('RESTE AU TOTAL') === st.res;
   db = real;
+  const mg = migrateCats(['Achats marchandises', 'Transport', 'Ma catégorie'], [{ cat: 'Achats marchandises' }]);
+  checks['Migration catégories'] = mg.cats.includes('Achats marchandises') && mg.cats.includes('Ma catégorie') && !mg.cats.includes('Transport') && mg.cats.includes('Boucherie');
   // fournisseur : départ 500 + facture 1200 − avoir 100 − paiement espèces 300 − paiement banque 1000 = 300 dus
   const FX = { ...DEF(), fours: [{ nom: 'F1', solde0: 500 }],
     charges: [{ date: '2026-10-02', montant: 1200, source: 'Fournisseur', four: 'F1' }, { date: '2026-10-02', montant: -100, source: 'Fournisseur', four: 'F1' }],
