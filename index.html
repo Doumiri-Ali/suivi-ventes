@@ -118,7 +118,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
 .cg{margin-bottom:10px}.cg>b{display:block;font-size:13px;margin-bottom:6px}.cg small{color:var(--muted);font-weight:400}
 /* bilan « TABLE M » : mêmes blocs de couleur que la feuille du client */
 .bil td:first-child{white-space:normal;min-width:190px}.bil th.click{cursor:pointer}
-.bil .rev{--g:#2f5482}.bil .fix{--g:#8c2d2d}.bil .var{--g:#d9691e}
+.bil .rev{--g:#2f5482}.bil .fix{--g:#8c2d2d}.bil .var{--g:#d9691e}.bil .tva{--g:#5a6472}
 .bil .bh td{background:var(--g);color:#fff;font-weight:700;letter-spacing:.4px}
 .bil .bs td{background:color-mix(in srgb,var(--g) 72%,var(--surface));color:#fff;font-weight:600;text-align:center}
 .bil .bl td{background:color-mix(in srgb,var(--g) 8%,var(--surface))}
@@ -171,14 +171,14 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
   <div class="bar"><h1>Tableau de bord</h1><input type="month" class="ym" aria-label="Mois"></div>
   <div class="kpis" id="tiles"></div>
   <div class="card"><h2>Ce qu'il faut retenir</h2><div id="dIns"></div></div>
-  <div class="card"><h2>Chiffre d'affaires par jour (DH)</h2><div id="chDay" class="chart"></div></div>
+  <div class="card"><h2>Chiffre d'affaires HT par jour (DH)</h2><div id="chDay" class="chart"></div></div>
   <div class="grid2">
-    <div class="card"><h2>D'où vient le chiffre d'affaires</h2><div id="hbEnc"></div></div>
+    <div class="card"><h2>D'où vient le chiffre d'affaires (TTC encaissé)</h2><div id="hbEnc"></div></div>
     <div class="card"><h2>Charges par catégorie (DH)</h2><div id="hbCh"></div></div>
   </div>
   <div class="grid2">
-    <div class="card"><h2>CA moyen par jour de la semaine (DH)</h2><div id="chDow" class="chart"></div></div>
-    <div class="card"><h2>CA cumulé depuis le 1er du mois (DH)</h2><div class="legend" id="cumLeg"></div><div id="chCum" class="chart"></div></div>
+    <div class="card"><h2>CA HT moyen par jour de la semaine (DH)</h2><div id="chDow" class="chart"></div></div>
+    <div class="card"><h2>CA HT cumulé depuis le 1er du mois (DH)</h2><div class="legend" id="cumLeg"></div><div id="chCum" class="chart"></div></div>
   </div>
 </section>
 
@@ -252,12 +252,13 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
       <select name="four" aria-label="Fournisseur"></select>
       <select name="type" aria-label="Opération"><option value="Facture">Facture (à crédit)</option><option value="Paiement">Paiement</option><option value="Avoir">Avoir / retour</option></select>
       <input name="ref" placeholder="N° facture / chèque">
-      <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant DH" required>
+      <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant HT (DH)" required>
+      <select name="tva" aria-label="TVA de la facture"><option value="0">TVA 0 %</option><option value="7">TVA 7 %</option><option value="10">TVA 10 %</option><option value="14">TVA 14 %</option><option value="20" selected>TVA 20 %</option></select>
       <select name="cat" aria-label="Catégorie"></select>
       <select name="mode" aria-label="Payé par" hidden><option value="Caisse">Payé en espèces (caisse)</option><option value="Banque">Payé par banque / chèque</option></select>
       <button class="btn pri">Ajouter</button>
     </form>
-    <p class="help" style="margin:0"><b>Facture</b> : achat à crédit — compté dans les charges du mois, augmente ce que vous devez.
+    <p class="help" style="margin:0"><b>Facture</b> : achat à crédit, saisi <b>HT</b> avec son taux de TVA — le HT compte dans les charges du mois, le TTC (HT + TVA) est ce que vous devez.
       <b>Paiement</b> : vous payez le fournisseur — en espèces, il compte dans la colonne Dépense du jour comme une charge payée en caisse (jamais compté deux fois dans les charges).
       <b>Avoir</b> : retour ou remise du fournisseur — diminue ce que vous devez et les charges. Si vous payez plus que les factures (avance), c'est le fournisseur qui vous doit.</p>
   </div>
@@ -274,8 +275,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
 <section id="p-bilan" class="page" hidden>
   <div class="bar"><h1>Bilan mois par mois</h1><input type="number" id="yr" min="2000" max="2100" style="width:100px" aria-label="Année">
     <button class="btn" onclick="print()">Imprimer / PDF</button><button class="btn pri" id="xYear">Exporter Excel</button></div>
-  <div class="card"><h2>CA et charges par mois (DH)</h2>
-    <div class="legend"><span><i style="background:var(--s1)"></i>CA</span><span><i style="background:var(--s2)"></i>Charges</span></div>
+  <div class="card"><h2>CA HT et charges par mois (DH)</h2>
+    <div class="legend"><span><i style="background:var(--s1)"></i>CA HT</span><span><i style="background:var(--s2)"></i>Charges</span></div>
     <div id="chYear" class="chart"></div></div>
   <div class="card"><h2>Bilan TABLE M<span class="noprint"> — cliquez un mois pour ouvrir son rapport</span></h2><div class="tw" id="yTable"></div></div>
 </section>
@@ -324,9 +325,9 @@ const F = [
   ['versement', 'Versement', 'caisse', 'Versé à la banque (Vrs Esp)'],
 ];
 const GROUPS = [['enc', 'Encaissements'], ['cred', 'Crédit clients'], ['perte', 'Remises & pertes (pour info)'], ['caisse', 'Caisse']];
-const NUM = [...F.map(f => f[0]), 'dep', 'charges', 'ca', 'recu', 'entree', 'sortie', 'payF'];
+const NUM = [...F.map(f => f[0]), 'dep', 'charges', 'ca', 'caTTC', 'recu', 'entree', 'sortie', 'payF', 'tvaCol', 'tvaRec', 'tvaPayee'];
 // Colonnes du rapport, dans l'ordre de la feuille Excel d'origine
-const RCOLS = [['date', 'Date'], ['ca', 'CA'], ['esp', 'Espèce'], ['cb', 'Carte Crédit'], ['vir', 'Vir/Chéq'], ['glovoEsp', 'Glovo/Espèce'], ['glovoLigne', 'Glovo/En ligne'],
+const RCOLS = [['date', 'Date'], ['ca', 'CA HT'], ['caTTC', 'CA TTC'], ['esp', 'Espèce'], ['cb', 'Carte Crédit'], ['vir', 'Vir/Chéq'], ['glovoEsp', 'Glovo/Espèce'], ['glovoLigne', 'Glovo/En ligne'],
   ['creditPaye', 'Crédit Payé'], ['creditClient', 'Crédit Client'], ['remise', 'Remise'], ['offert', 'Offert'], ['perte', 'Perte'], ['annul', 'Annulation'],
   ['dep', 'Dépense'], ['recu', 'Reçu par ' + RESP], ['versement', 'Versement'], ['entree', 'Entrée caisse'], ['sortie', 'Sortie caisse'], ['reste', 'Reste'], ['obs', 'Observation']];
 // Catégories de charges = lignes du bilan « TABLE M », par groupe, dans l'ordre de la feuille du client.
@@ -345,6 +346,8 @@ const CATS = {
 const GRPS = Object.keys(CATS), VAR = 'Dépenses variables', DEF_GRP = 'Charges & Abonnements';
 const defCats = () => ({ cats: Object.values(CATS).flat(), catGrp: Object.fromEntries(Object.entries(CATS).flatMap(([g, cs]) => cs.map(c => [c, g]))) });
 const grpOf = c => GRPS.includes(db.catGrp[c]) ? db.catGrp[c] : DEF_GRP;
+// CA et factures étant HT, la TVA versée à la DGI n'est pas une charge (sinon comptée deux fois)
+const TVA_CAT = 'TVA', isCharge = c => c.cat !== TVA_CAT;
 // Données d'avant les groupes : lignes de la TABLE M + anciennes catégories encore utilisées ou ajoutées à la main
 const OLD_CATS = ['Achats marchandises', 'Salaires', 'Loyer', 'Électricité / Eau', 'Gaz', 'Fournitures', 'Transport', 'Entretien', 'Impôts / Taxes', 'Autre'];
 function migrateCats(cats, charges) {
@@ -354,7 +357,8 @@ function migrateCats(cats, charges) {
   return m;
 }
 const PARAMS = [['soldeInitial', 'Reste de départ (DH)', 'Argent déjà en main avant le 1er jour saisi'], ['fondCaisse', 'Fond de caisse (DH)', ''],
-  ['euro', 'Dont en Euro (€)', 'Partie du Reste gardée en euros'], ['taux', 'Taux Euro → DH', 'Dans l\'Excel : 10']];
+  ['euro', 'Dont en Euro (€)', 'Partie du Reste gardée en euros'], ['taux', 'Taux Euro → DH', 'Dans l\'Excel : 10'],
+  ['tvaVentes', 'TVA sur les ventes (%)', 'Les ventes sont saisies TTC ; le CA est affiché HT = TTC ÷ (1 + taux)']];
 
 // ---------- utilitaires ----------
 const $ = s => document.querySelector(s);
@@ -377,7 +381,7 @@ const sumBy = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
 
 // ---------- stockage ----------
 const withUsed = (cats, charges = []) => [...new Set([...cats, ...charges.map(c => c.cat)])];
-const DEF = () => ({ jours: {}, charges: [], mvts: [], fours: [], paiements: [], ...defCats(), params: { soldeInitial: 0, fondCaisse: 0, euro: 0, taux: 10 }, lastBackup: null });
+const DEF = () => ({ jours: {}, charges: [], mvts: [], fours: [], paiements: [], ...defCats(), params: { soldeInitial: 0, fondCaisse: 0, euro: 0, taux: 10, tvaVentes: 10 }, lastBackup: null });
 // Les données vont dans un fichier Excel choisi par l'utilisateur (Chrome / Edge).
 // Le navigateur en garde aussi une copie (localStorage), utilisée si le fichier n'est pas accessible.
 function load() {
@@ -411,7 +415,7 @@ const DEMO_ONE = {
 };
 function demoData() {
   const rnd = (x => () => (x = x * 16807 % 2147483647) / 2147483647)(7), pick = a => a[Math.floor(rnd() * a.length)];
-  const d = { ...DEF(), params: { soldeInitial: 4200, fondCaisse: 2000, euro: 150, taux: 10 },
+  const d = { ...DEF(), params: { ...DEF().params, soldeInitial: 6000, fondCaisse: 2000, euro: 150 },
     fours: ['Boucherie Atlas', 'Volailles Zaër', 'Poissonnerie du Port', 'Grossiste Boissons', 'Fromagerie du Centre', 'Emballages Pro']
       .map(nom => ({ nom, tel: '', solde0: { 'Boucherie Atlas': 3200, 'Grossiste Boissons': 1500 }[nom] || 0 })) };
   const K = [.75, .9, .95, 1, 1.15, 1.45, 1.35];                       // dimanche → samedi
@@ -419,7 +423,8 @@ function demoData() {
   const t = today(), months = [t.slice(0, 7)], owed = {};              // owed : facturé depuis le dernier paiement
   while (months.length < 6 || months[0] > t.slice(0, 4) + '-01') months.unshift(prevYm(months[0]));
   const C = (date, cat, montant, source = 'Caisse', x = {}) => date <= t && d.charges.push({ id: uid(), date, cat, lib: '', montant: Math.round(montant), source, ...x });
-  const fac = (date, four, cat, m, ref, lib = 'Facture') => { owed[four] = (owed[four] || 0) + m; C(date, cat, m, 'Fournisseur', { four, ref, lib }); };
+  // factures saisies HT avec leur taux de TVA ; le fournisseur attend le TTC
+  const fac = (date, four, cat, m, ref, tva, lib = 'Facture') => { owed[four] = (owed[four] || 0) + m * (1 + tva / 100); C(date, cat, m, 'Fournisseur', { four, ref, lib, tva }); };
   const pay = (date, four, m, mode, ref) => { m = Math.round(m); if (m > 0) { owed[four] = (owed[four] || 0) - m; d.paiements.push({ id: uid(), date, four, montant: m, mode, ref }); } };
   for (const ym of months) {
     const mo = +ym.slice(5), mf = MF[mo - 1];
@@ -432,32 +437,38 @@ function demoData() {
         for (const [c, v] of [['Les Salaires', mo >= 7 ? 13200 : 11800], ['Loyer', 6500], ['Cotisation CNSS', mo >= 7 ? 1100 : 980], ['Honoraires comptable', 1500],
           ['Location machine à café', 900], ['Fibre optique, internet & téléphone', 450], ['Frais bancaires & Commission', 180]]) C(iso, c, v, 'Banque');
         C(iso, 'Électricité', 1000 + 900 * (mf - .78) + rnd() * 200, 'Banque'); C(iso, 'Eau', 320 + rnd() * 140, 'Banque'); C(iso, 'Gaz', 520 + rnd() * 160);
-        if (mo % 3 === 1) { C(iso, 'TVA', 3800 + rnd() * 1400, 'Banque'); C(iso, 'Traitement hygiène', 600, 'Banque'); }
+        if (mo % 3 === 1) { // TVA du trimestre précédent : collectée (ventes TTC à 10 %) − récupérable (factures)
+          const q = [prevYm(ym), prevYm(prevYm(ym)), prevYm(prevYm(prevYm(ym)))], inQ = k => q.includes(k.slice(0, 7));
+          const due = sumBy(Object.keys(d.jours).filter(inQ), k => { const j = d.jours[k]; return (j.esp + j.cb + j.vir + j.glovoLigne + j.creditClient) / 11; })
+            - sumBy(d.charges.filter(c => c.tva && inQ(c.date)), c => c.montant * c.tva / 100);
+          if (due > 0) C(iso, 'TVA', due, 'Banque');
+          C(iso, 'Traitement hygiène', 600, 'Banque');
+        }
         if (mo === 1 || mo === 7) C(iso, 'Impôt sur Loyer', 2400, 'Banque');
         if (mo % 2) C(iso, 'ADS', 800, 'Banque');
         C(iso, 'Pourboire', 400); C(iso, 'Fournitures de bureau', 120 + rnd() * 150);
       }
       for (const [c, v, s] of DEMO_ONE[iso.slice(5)] || []) C(iso, c, v, s);
-      if (iso.slice(5) === '06-18') fac(iso, 'Grossiste Boissons', 'Limonades', -420, 'Bouteilles consignées', 'Avoir');
-      if (iso.slice(5) === '08-14') fac(iso, 'Boucherie Atlas', 'Boucherie', -650, 'Retour viande', 'Avoir');
+      if (iso.slice(5) === '06-18') fac(iso, 'Grossiste Boissons', 'Limonades', -420, 'Bouteilles consignées', 20, 'Avoir');
+      if (iso.slice(5) === '08-14') fac(iso, 'Boucherie Atlas', 'Boucherie', -650, 'Retour viande', 0, 'Avoir');
       if (iso.slice(5) === '09-03') pay(iso, 'Emballages Pro', 3000, 'Banque', 'Avance');              // avance : ce fournisseur finit par vous devoir
-      if (iso.slice(5) === '09-20') fac(iso, 'Emballages Pro', 'Emballage (sacs, boîtes, couverts)', 1800, 'EP-0920');
+      if (iso.slice(5) === '09-20') fac(iso, 'Emballages Pro', 'Emballage (sacs, boîtes, couverts)', 1800, 'EP-0920', 20);
       if (wd === 1 && rnd() < .5) continue;                             // fermé certains lundis
       d.jours[iso] = { esp: r(.52), cb: r(.3), vir: rnd() < .2 ? r(.08) : 0, glovoEsp: r(.04), glovoLigne: r(.11),
         creditClient: rnd() < .3 ? r(.07) : 0, creditPaye: rnd() < .25 ? r(.05) : 0, remise: rnd() < .4 ? r(.012) : 0,
         offert: rnd() < .3 ? r(.008) : 0, perte: rnd() < .15 ? r(.01) : 0, annul: rnd() < .1 ? r(.006) : 0,
-        versement: wd === 6 ? r(2.6) : 0, obs: wd === 6 ? 'Versement hebdomadaire' : '' };
+        versement: wd === 6 ? r(2.45) : 0, obs: wd === 6 ? 'Versement hebdomadaire' : '' };
       // achats du jour payés en caisse : [catégorie, part du CA, probabilité]
       for (const [c, x, p] of [['Légumes & Fruits', .09, .9], ['Boulangerie', .025, .95], ['Les salades', .02, .6], ['Œufs', .015, .5], ['Glaçons', .01, mf > 1.1 ? .8 : .3],
         ['Glace', .02, mf > 1.1 ? .5 : .1], ['Café', .03, .3], ['Olives', .01, .2], ['Produits alimentaires', .06, .5], ['Gasoil', .04, .3], ['Produits d\'hygiène', .03, .15],
         ['Emballage (sacs, boîtes, couverts)', .03, .2], ['Cire (allumage des bougies)', .008, .2], ['Petit matériel', .03, .05], ['Service', .04, .08], ['Divers', .02, .1]])
         if (rnd() < p) C(iso, c, r(x * (.7 + rnd() * .6)));
       // fournisseurs : factures à crédit, payées en partie plus tard
-      if (wd === 2) fac(iso, 'Boucherie Atlas', 'Boucherie', r(.5), ref('BA-'));
-      if (wd === 3 || wd === 6) fac(iso, 'Volailles Zaër', 'Volaille', r(.18), ref('VZ-'));
-      if (wd === 5) fac(iso, 'Poissonnerie du Port', 'Poisson', r(.2), ref('PP-'));
-      if (wd === 4) { fac(iso, 'Grossiste Boissons', 'Limonades', r(.3), ref('GB-')); fac(iso, 'Grossiste Boissons', 'Eaux minérales', r(.08), ref('GBE-')); }
-      if (day === 2 || day === 16) fac(iso, 'Fromagerie du Centre', 'Fromage', 1800 + rnd() * 600, ref('FC-'));
+      if (wd === 2) fac(iso, 'Boucherie Atlas', 'Boucherie', r(.5), ref('BA-'), 0);
+      if (wd === 3 || wd === 6) fac(iso, 'Volailles Zaër', 'Volaille', r(.18), ref('VZ-'), 0);
+      if (wd === 5) fac(iso, 'Poissonnerie du Port', 'Poisson', r(.2), ref('PP-'), 0);
+      if (wd === 4) { fac(iso, 'Grossiste Boissons', 'Limonades', r(.3), ref('GB-'), 20); fac(iso, 'Grossiste Boissons', 'Eaux minérales', r(.08), ref('GBE-'), 7); }
+      if (day === 2 || day === 16) fac(iso, 'Fromagerie du Centre', 'Fromage', 1800 + rnd() * 600, ref('FC-'), 7);
       if (wd === 5) pay(iso, 'Boucherie Atlas', owed['Boucherie Atlas'] * .95, 'Banque', 'Chèque');
       if (wd === 6) pay(iso, 'Volailles Zaër', owed['Volailles Zaër'] * .95, 'Caisse', 'Espèces');
       if (day === 10) pay(iso, 'Poissonnerie du Port', owed['Poissonnerie du Port'] * .8, 'Banque', 'Virement');
@@ -553,14 +564,18 @@ function ledger(d = db) {
   for (const p of d.paiements) if (p.mode === 'Caisse') (payByDate[p.date] ??= []).push(p);
   const dates = [...new Set([d.jours, byDate, mvByDate, payByDate].flatMap(Object.keys))].sort();
   let reste = +d.params.soldeInitial || 0, credit = 0;
+  const kHT = 1 + (+d.params.tvaVentes || 0) / 100;                     // les montants saisis sont TTC
   return dates.map(date => {
     const j = d.jours[date] || {}, ch = byDate[date] || [], r = { date, obs: j.obs || '' };
     for (const [k] of F) r[k] = +j[k] || 0;
     // fournisseur payé en espèces : sort de la caisse comme une dépense, sans être une charge de plus (la facture l'est déjà)
     r.payF = sumBy(payByDate[date] || [], p => +p.montant || 0);
     r.dep = sumBy(ch.filter(c => c.source === 'Caisse'), c => +c.montant || 0) + r.payF;
-    r.charges = sumBy(ch, c => +c.montant || 0);
-    r.ca = r.esp + r.cb + r.vir + r.glovoLigne + r.creditClient + r.dep; // colonne B
+    r.charges = sumBy(ch.filter(isCharge), c => +c.montant || 0);          // factures fournisseurs : HT
+    r.tvaPayee = sumBy(ch.filter(c => !isCharge(c)), c => +c.montant || 0); // TVA versée à la DGI : pas une charge
+    r.tvaRec = sumBy(ch, c => (+c.montant || 0) * (+c.tva || 0) / 100);   // TVA des factures, récupérable
+    r.caTTC = r.esp + r.cb + r.vir + r.glovoLigne + r.creditClient + r.dep; // colonne B
+    r.ca = r.caTTC / kHT; r.tvaCol = r.caTTC - r.ca;                       // le CA est suivi HT
     r.recu = r.esp + r.creditPaye;                                        // colonne P
     const mv = mvByDate[date] || [];                                      // entrées / sorties : hors CA
     r.entree = sumBy(mv.filter(m => m.type === 'Entrée'), m => +m.montant || 0);
@@ -584,7 +599,7 @@ function monthDays(L, ym) {
 }
 const chargesByCat = ym => {
   const o = {};
-  for (const c of db.charges) if (c.date.startsWith(ym)) o[c.cat] = (o[c.cat] || 0) + (+c.montant || 0);
+  for (const c of db.charges) if (c.date.startsWith(ym) && isCharge(c)) o[c.cat] = (o[c.cat] || 0) + (+c.montant || 0);
   return Object.entries(o);
 };
 
@@ -706,9 +721,9 @@ function dash() {
   const st = stats(state.ym), t = st.t, eurDh = db.params.euro * db.params.taux;
   const period = st.elapsed < st.all.length ? `1–${+st.ref.slice(8)} ` : '';
   $('#tiles').innerHTML =
-    kpi('Chiffre d\'affaires — ' + mName(st.ym), fmt(t.ca) + ' DH',
-      st.delta == null ? `${st.act.length} jour(s) avec ventes` : `${dchip(st.delta)} vs ${period}${mName(st.prev)} (${fmt(st.p.ca)} DH)`, 'lead') +
-    kpi('Résultat (CA − charges)', signed(st.res), 'marge ' + pct(st.marge)) +
+    kpi('Chiffre d\'affaires HT — ' + mName(st.ym), fmt(t.ca) + ' DH',
+      (st.delta == null ? `${st.act.length} jour(s) avec ventes` : `${dchip(st.delta)} vs ${period}${mName(st.prev)} (${fmt(st.p.ca)} DH)`) + ` · TTC ${fmt(t.caTTC)} DH`, 'lead') +
+    kpi('Résultat (CA HT − charges)', signed(st.res), 'marge ' + pct(st.marge)) +
     kpi('Charges du mois', fmt(t.charges), `dont ${fmt(t.dep - t.payF)} payés en caisse` + (t.ca ? ` · ${pct(t.charges / t.ca * 100)} du CA` : '')) +
     kpi('CA moyen par jour travaillé', fmt(st.avg), st.act.length + ' jour(s) avec ventes') +
     kpi(st.proj ? 'Projection fin de mois' : 'Remises, offerts, pertes', st.proj ? fmt(st.proj) : fmt(st.pertes),
@@ -719,10 +734,10 @@ function dash() {
   $('#dIns').innerHTML = insList(insights(st));
   const days = st.all;
   colChart($('#chDay'), days.map(d => +d.slice(8)), days.map(dLabel),
-    [{ name: 'CA', color: 'var(--s1)', data: days.map(d => st.map[d]?.ca || 0) }], st.avg);
+    [{ name: 'CA HT', color: 'var(--s1)', data: days.map(d => st.map[d]?.ca || 0) }], st.avg);
   $('#hbEnc').innerHTML = stackbar(st.mix);
   $('#hbCh').innerHTML = hbars(st.cats);
-  colChart($('#chDow'), DOWS, DOW.map(d => 'En moyenne le ' + d), [{ name: 'CA moyen', color: 'var(--s1)', data: st.dowAvg }]);
+  colChart($('#chDow'), DOWS, DOW.map(d => 'En moyenne le ' + d), [{ name: 'CA HT moyen', color: 'var(--s1)', data: st.dowAvg }]);
   $('#cumLeg').innerHTML = `<span><i style="background:var(--s1)"></i>${mName(st.ym)}</span><span><i style="background:var(--s2)"></i>${mName(st.prev)}</span>`;
   colChart($('#chCum'), days.map(d => +d.slice(8)), days.map(d => 'Au ' + (+d.slice(8)) + ' du mois'),
     [{ name: mName(st.ym), color: 'var(--s1)', data: st.cumA, line: 1 }, { name: mName(st.prev), color: 'var(--s2)', data: st.cumP, line: 1 }]);
@@ -743,21 +758,22 @@ function saisie() {
 function live() {
   const L = ledger(), r = L.find(x => x.date === state.date) || Object.fromEntries(NUM.map(k => [k, 0])), ym = state.date.slice(0, 7);
   const st = at(L, state.date), mtd = sumBy(monthRows(L, ym).filter(x => x.date <= state.date), x => x.ca);
-  $('#live').innerHTML = `<div class="tl">CA du ${dLabel(state.date)}</div><div class="big">${fmt(r.ca)} <small style="font-size:16px">DH</small></div>
-    <div class="formula">= Espèce + Carte + Vir/Chéq + Glovo en ligne + Crédit client + Dépenses caisse</div>
+  $('#live').innerHTML = `<div class="tl">CA HT du ${dLabel(state.date)}</div><div class="big">${fmt(r.ca)} <small style="font-size:16px">DH</small></div>
+    <div class="formula">TTC ${fmt(r.caTTC)} DH ÷ ${String(1 + (+db.params.tvaVentes || 0) / 100).replace('.', ',')} (TVA ${+db.params.tvaVentes || 0} %)<br>
+      TTC = Espèce + Carte + Vir/Chéq + Glovo en ligne + Crédit client + Dépenses caisse</div>
     ${kv('Dépenses caisse du jour', fmt(r.dep), r.payF ? `dont ${fmt(r.payF)} payés aux fournisseurs` : 'ajoutées en bas de page')}
     ${kv('Reçu par ' + RESP, fmt(r.recu), 'Espèce + Crédit payé')}
     ${r.entree || r.sortie ? kv('Entrées − sorties de caisse', signed(r.entree - r.sortie), 'onglet Caisse') : ''}
     ${kv('Reste en caisse', fmt(st.reste), 'Reste veille + Reçu − Versement + Entrées − Sorties')}
     ${kv('Crédit clients en cours', fmt(st.credit))}
-    ${kv('CA du mois à ce jour', fmt(mtd), mName(ym))}
-    ${kv('Toutes charges du jour', fmt(r.charges), 'caisse + banque')}`;
+    ${kv('CA HT du mois à ce jour', fmt(mtd), mName(ym))}
+    ${kv('Toutes charges du jour', fmt(r.charges), 'caisse + banque + factures HT')}`;
   const ch = db.charges.filter(c => c.date === state.date);
   $('#dayCh').innerHTML = ch.length ? chargeTable(ch, false) : '<p class="empty">Aucune dépense ce jour.</p>';
 }
 function chargeTable(list, withDate) {
   return `<table><thead><tr>${withDate ? '<th>Date</th>' : ''}<th class="t">Catégorie</th><th class="t">Libellé</th><th class="t">Source</th><th>Montant</th><th></th></tr></thead><tbody>` +
-    list.map(c => `<tr>${withDate ? `<td>${fd(c.date)}</td>` : ''}<td class="t">${esc(c.cat)}</td><td class="t">${esc([c.lib, c.four, c.ref && 'n° ' + c.ref].filter(Boolean).join(' · '))}</td><td class="t">${esc(c.source)}</td><td>${fmt(c.montant)}</td><td><button class="x" data-del="${esc(c.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
+    list.map(c => `<tr>${withDate ? `<td>${fd(c.date)}</td>` : ''}<td class="t">${esc(c.cat)}</td><td class="t">${esc([c.lib, c.four, c.ref && 'n° ' + c.ref, c.source === 'Fournisseur' && c.tva != null && `HT, TVA ${c.tva} %`].filter(Boolean).join(' · '))}</td><td class="t">${esc(c.source)}</td><td>${fmt(c.montant)}</td><td><button class="x" data-del="${esc(c.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
     `</tbody><tfoot><tr><td colspan="${withDate ? 4 : 3}">Total</td><td>${fmt(sumBy(list, c => +c.montant))}</td><td></td></tr></tfoot></table>`;
 }
 
@@ -765,10 +781,12 @@ function charges() {
   const f = document.querySelector('#p-charges .fCharge');
   if (!f.date.value.startsWith(state.ym)) f.date.value = today().startsWith(state.ym) ? today() : state.ym + '-01';
   const list = db.charges.filter(c => c.date.startsWith(state.ym)).sort((a, b) => b.date.localeCompare(a.date));
-  const by = s => sumBy(list.filter(c => c.source === s), c => +c.montant), fac = by('Fournisseur');
-  $('#chTot').innerHTML = `<div class="big">${fmt(sumBy(list, c => +c.montant))} <small style="font-size:16px">DH</small></div>` +
+  const ch = list.filter(isCharge), by = s => sumBy(ch.filter(c => c.source === s), c => +c.montant), fac = by('Fournisseur');
+  const tva = sumBy(list.filter(c => !isCharge(c)), c => +c.montant);
+  $('#chTot').innerHTML = `<div class="big">${fmt(sumBy(ch, c => +c.montant))} <small style="font-size:16px">DH</small></div>` +
     kv('Payé en caisse', fmt(by('Caisse'))) + kv('Payé par banque', fmt(by('Banque'))) +
-    (fac ? kv('Factures fournisseurs (à crédit)', fmt(fac), 'payées ou non : voir l\'onglet Fournisseurs') : '') + kv('Nombre de charges', list.length);
+    (fac ? kv('Factures fournisseurs HT (à crédit)', fmt(fac), 'payées ou non : voir l\'onglet Fournisseurs') : '') + kv('Nombre de charges', ch.length) +
+    (tva ? kv('TVA payée à la DGI', fmt(tva), 'pas une charge : voir la partie TVA du bilan') : '');
   $('#chCat').innerHTML = hbars(chargesByCat(state.ym));
   $('#chList').innerHTML = list.length ? chargeTable(list, true) : '<p class="empty">Aucune charge pour ' + mName(state.ym) + '.</p>';
 }
@@ -791,7 +809,9 @@ function caisse() {
 const cent = v => Math.round(v * 100) / 100;
 function compte(nom, d = db) {
   const f = d.fours.find(x => x.nom === nom) || {}, solde0 = +f.solde0 || 0;
-  const ops = [...d.charges.filter(c => c.source === 'Fournisseur' && c.four === nom).map(c => ({ ...c, op: c.montant < 0 ? 'Avoir' : 'Facture', v: +c.montant || 0, del: 'del' })),
+  // factures saisies HT : on doit le TTC (anciennes factures sans taux = montant déjà dû)
+  const ops = [...d.charges.filter(c => c.source === 'Fournisseur' && c.four === nom).map(c => ({ ...c, del: 'del', v: cent((+c.montant || 0) * (1 + (+c.tva || 0) / 100)),
+      op: (c.montant < 0 ? 'Avoir' : 'Facture') + (c.tva ? ` (HT ${fmt(Math.abs(c.montant))} + TVA ${c.tva} %)` : '') })),
     ...d.paiements.filter(p => p.four === nom).map(p => ({ ...p, op: p.mode === 'Caisse' ? 'Paiement espèces' : 'Paiement banque', v: -(+p.montant || 0), del: 'delpay' }))]
     .sort((a, b) => a.date.localeCompare(b.date));
   let solde = solde0;
@@ -807,7 +827,7 @@ function fournisseurs() {
     kpi('Les fournisseurs vous doivent', fmt(-sumBy(doit, c => c.solde)), 'avances ou avoirs pas encore utilisés') + kpi('Fournisseurs', C.length, '');
   const money = v => v ? fmt(v) : '';
   $('#fEtat').innerHTML = !C.length ? '<p class="empty">Aucun fournisseur : choisissez « ➕ Nouveau fournisseur… » dans la liste ci-dessus.</p>'
-    : `<table><thead><tr><th>Fournisseur</th><th class="t">Téléphone</th><th>Solde de départ</th><th>Facturé</th><th>Payé + avoirs</th><th>Vous devez</th><th>Il vous doit</th></tr></thead><tbody>` +
+    : `<table><thead><tr><th>Fournisseur</th><th class="t">Téléphone</th><th>Solde de départ</th><th>Facturé TTC</th><th>Payé + avoirs</th><th>Vous devez</th><th>Il vous doit</th></tr></thead><tbody>` +
       C.map(c => `<tr class="click" data-four="${esc(c.nom)}"><td>${state.four === c.nom ? '<b>' + esc(c.nom) + '</b>' : esc(c.nom)}</td><td class="t">${esc(c.tel)}</td><td>${money(c.solde0)}</td><td>${money(c.fact)}</td><td>${money(c.regl)}</td><td class="bad">${c.solde > 0 ? fmt(c.solde) : ''}</td><td class="good">${c.solde < 0 ? fmt(-c.solde) : ''}</td></tr>`).join('') +
       `</tbody><tfoot><tr><td colspan="5">Total</td><td>${fmt(sumBy(du, c => c.solde))}</td><td>${fmt(-sumBy(doit, c => c.solde))}</td></tr></tfoot></table>`;
   const c = db.fours.some(x => x.nom === state.four) && compte(state.four);
@@ -817,7 +837,7 @@ function fournisseurs() {
     <div class="flds noprint" style="margin-bottom:12px;max-width:440px">
       <label class="fld"><span>Téléphone</span><input data-fset="tel" value="${esc(c.tel)}"></label>
       <label class="fld"><span>Solde de départ (DH)</span><input data-fset="solde0" type="number" step="0.01" value="${c.solde0}"><small>dette déjà due avant la 1re facture saisie (− si c'est lui qui vous devait)</small></label></div>
-    <div class="tw"><table><thead><tr><th>Date</th><th class="t">Opération</th><th class="t">Référence</th><th>Facturé</th><th>Payé / avoir</th><th>Solde</th><th></th></tr></thead><tbody>
+    <div class="tw"><table><thead><tr><th>Date</th><th class="t">Opération</th><th class="t">Référence</th><th>Facturé TTC</th><th>Payé / avoir</th><th>Solde</th><th></th></tr></thead><tbody>
       <tr><td></td><td class="t">Solde de départ</td><td></td><td></td><td></td><td>${fmt(c.solde0)}</td><td></td></tr>` +
       c.ops.map(o => `<tr><td>${fd(o.date)}</td><td class="t">${o.op}</td><td class="t">${esc(o.ref)}</td><td>${o.v > 0 ? fmt(o.v) : ''}</td><td>${o.v < 0 ? fmt(-o.v) : ''}</td><td>${fmt(o.solde)}</td><td><button class="x" data-${o.del}="${esc(o.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
       `</tbody><tfoot><tr><td colspan="3">Total</td><td>${fmt(c.fact)}</td><td>${fmt(c.regl)}</td><td>${fmt(c.solde)}</td><td></td></tr></tfoot></table></div>
@@ -835,8 +855,8 @@ function rapport() {
   <div class="rhead"><h1>Suivi des Ventes TM — ${mName(ym)}</h1>
     <div class="sub">Rapport mensuel · édité le ${fd(today())}<br>${st.act.length} jour(s) avec ventes sur ${st.all.length}</div></div>
   <div class="kpis">
-    ${kpi('Chiffre d\'affaires', fmt(t.ca) + ' DH', st.delta == null ? mName(ym) : `${dchip(st.delta)} vs ${period}${mName(st.prev)}`, 'lead')}
-    ${kpi('Total des charges', fmt(t.charges), t.ca ? pct(t.charges / t.ca * 100) + ' du CA' : '')}
+    ${kpi('Chiffre d\'affaires HT', fmt(t.ca) + ' DH', (st.delta == null ? mName(ym) : `${dchip(st.delta)} vs ${period}${mName(st.prev)}`) + ` · TTC ${fmt(t.caTTC)} DH`, 'lead')}
+    ${kpi('Total des charges', fmt(t.charges), (t.ca ? pct(t.charges / t.ca * 100) + ' du CA HT' : '') + (t.tvaPayee ? ` · hors TVA payée (${fmt(t.tvaPayee)})` : ''))}
     ${kpi('Résultat', signed(st.res), 'marge ' + pct(st.marge))}
     ${kpi('CA moyen par jour travaillé', fmt(st.avg), st.act.length + ' jour(s) avec ventes')}
     ${kpi('Reste en caisse', fmt(endReste), 'fin de période')}
@@ -844,12 +864,12 @@ function rapport() {
   </div>
   <div class="card"><h2>Ce qu'il faut retenir</h2>${insList(insights(st))}</div>
   <div class="grid2">
-    <div class="card"><h2>D'où vient le chiffre d'affaires</h2>${stackbar(st.mix)}</div>
+    <div class="card"><h2>D'où vient le chiffre d'affaires (TTC encaissé)</h2>${stackbar(st.mix)}</div>
     <div class="card"><h2>Charges par catégorie (DH)</h2>${st.cats.length ? hbars(st.cats) : '<p class="empty">Aucune charge ce mois.</p>'}</div>
   </div>
-  <div class="card"><h2>Chiffre d'affaires par jour (DH) — la ligne pointillée est la moyenne du mois</h2><div id="rDay" class="chart"></div></div>
+  <div class="card"><h2>Chiffre d'affaires HT par jour (DH) — la ligne pointillée est la moyenne du mois</h2><div id="rDay" class="chart"></div></div>
   <div class="grid2">
-    <div class="card"><h2>CA moyen par jour de la semaine (DH)</h2><div id="rDow" class="chart"></div></div>
+    <div class="card"><h2>CA HT moyen par jour de la semaine (DH)</h2><div id="rDow" class="chart"></div></div>
     <div class="card"><h2>Caisse en fin de période</h2>
       ${kv('Euro', `${fmt(p.euro)} € × ${p.taux} = ${fmt(eurDh)}`)}${kv('Dirhams', fmt(endReste - eurDh))}${kv('<b>Total général</b>', fmt(endReste))}${kv('Fonds de caisse', fmt(p.fondCaisse))}
       ${kv('Versements à la banque', fmt(t.versement), 'sur le mois')}${kv('Entrées / sorties de caisse', `+${fmt(t.entree)} / −${fmt(t.sortie)}`, 'sur le mois, hors CA')}${t.payF ? kv('Fournisseurs payés en espèces', fmt(t.payF), 'compris dans la colonne Dépense') : ''}${kv('Crédit clients en cours', fmt(st.end.credit))}
@@ -864,8 +884,8 @@ function rapport() {
   <div class="card pbreak"><h2>Détail des charges du mois (${ch.length})</h2>
     <div class="tw">${ch.length ? chargeTable(ch, true) : '<p class="empty">Aucune charge ce mois.</p>'}</div></div>`;
   const dd = st.all;
-  colChart($('#rDay'), dd.map(d => +d.slice(8)), dd.map(dLabel), [{ name: 'CA', color: 'var(--s1)', data: dd.map(d => st.map[d]?.ca || 0) }], st.avg);
-  colChart($('#rDow'), DOWS, DOW.map(d => 'En moyenne le ' + d), [{ name: 'CA moyen', color: 'var(--s1)', data: st.dowAvg }]);
+  colChart($('#rDay'), dd.map(d => +d.slice(8)), dd.map(dLabel), [{ name: 'CA HT', color: 'var(--s1)', data: dd.map(d => st.map[d]?.ca || 0) }], st.avg);
+  colChart($('#rDow'), DOWS, DOW.map(d => 'En moyenne le ' + d), [{ name: 'CA HT moyen', color: 'var(--s1)', data: st.dowAvg }]);
 }
 
 function yearData() {
@@ -876,8 +896,8 @@ function yearData() {
   });
 }
 // ---------- bilan « TABLE M » (présentation de la feuille du client) ----------
-// TOTAL REVENUS = C.A ; RESTE = revenus − dépenses fixes ; RESTE AU TOTAL = RESTE − dépenses variables (= résultat)
-const REV = [['ca', 'C.A'], ['esp', 'CV Espèce'], ['cb', 'CV Carte Crédit'], ['vir', 'CV Vir/Chèque'], ['creditClient', 'Crédit Client'], ['creditPaye', 'Crédit payé'], ['glovoLigne', 'Glovo/En ligne'], ['glovoEsp', 'Glovo/Espèce']];
+// TOTAL REVENUS = C.A HT ; RESTE = revenus − dépenses fixes ; RESTE AU TOTAL = RESTE − dépenses variables (= résultat)
+const REV = [['ca', 'C.A HT'], ['caTTC', 'C.A TTC'], ['esp', 'CV Espèce'], ['cb', 'CV Carte Crédit'], ['vir', 'CV Vir/Chèque'], ['creditClient', 'Crédit Client'], ['creditPaye', 'Crédit payé'], ['glovoLigne', 'Glovo/En ligne'], ['glovoEsp', 'Glovo/Espèce']];
 function bilanRows(keys) { // une colonne par clé : 'AAAA-MM' (un mois) ou 'AAAA' (l'année)
   const L = ledger(), T = keys.map(k => totals(monthRows(L, k))), C = keys.map(k => Object.fromEntries(chargesByCat(k)));
   const cats = withUsed(db.cats, db.charges), rows = [], line = (label, vals, cls) => rows.push({ k: 'l', label, vals, cls });
@@ -886,7 +906,7 @@ function bilanRows(keys) { // une colonne par clé : 'AAAA-MM' (un mois) ou 'AAA
     const sum = keys.map(() => 0);
     for (const g of gs) {
       if (gs.length > 1) rows.push({ k: 's', label: g, cls });
-      for (const c of cats.filter(c => grpOf(c) === g)) { const v = C.map(m => m[c] || 0); v.forEach((x, i) => sum[i] += x); line(c, v, cls); }
+      for (const c of cats.filter(c => grpOf(c) === g && c !== TVA_CAT)) { const v = C.map(m => m[c] || 0); v.forEach((x, i) => sum[i] += x); line(c, v, cls); }
     }
     rows.push({ k: 't', label: 'TOTAL ' + title, vals: sum, cls });
     return sum;
@@ -901,6 +921,12 @@ function bilanRows(keys) { // une colonne par clé : 'AAAA-MM' (un mois) ou 'AAA
   const vr = block('DÉPENSES VARIABLES', [VAR], 'var'), r2 = r1.map((v, i) => v - vr[i]);
   rows.push({ k: 'r', label: 'RESTE AU TOTAL', sub: 'pour épargner ou dépenses exceptionnelles', vals: r2 });
   rows.push({ k: 'm', label: 'Marge en %', vals: r2.map((v, i) => rev[i] ? v / rev[i] * 100 : null) });
+  // TVA : hors résultat, pour savoir ce qui est dû à la DGI
+  rows.push({ k: 'h', label: 'TVA (hors résultat)', cls: 'tva' });
+  line('TVA collectée sur les ventes', T.map(t => t.tvaCol), 'tva');
+  line('TVA récupérable (factures fournisseurs)', T.map(t => t.tvaRec), 'tva');
+  rows.push({ k: 't', label: 'TVA À PAYER', vals: T.map(t => t.tvaCol - t.tvaRec), cls: 'tva' });
+  line('TVA payée à la DGI', T.map(t => t.tvaPayee), 'tva');
   return rows;
 }
 function bilanTable(keys, heads) {
@@ -915,7 +941,7 @@ const yearKeys = () => { const has = yearData().filter(m => m.has).map(m => m.ym
 function bilan() {
   $('#yr').value = state.year;
   const M = yearData(), keys = yearKeys();
-  colChart($('#chYear'), M.map(m => m.label), M.map(m => mName(m.ym)), [{ name: 'CA', color: 'var(--s1)', data: M.map(m => m.t.ca) }, { name: 'Charges', color: 'var(--s2)', data: M.map(m => m.t.charges) }]);
+  colChart($('#chYear'), M.map(m => m.label), M.map(m => mName(m.ym)), [{ name: 'CA HT', color: 'var(--s1)', data: M.map(m => m.t.ca) }, { name: 'Charges', color: 'var(--s2)', data: M.map(m => m.t.charges) }]);
   $('#yTable').innerHTML = !keys.length ? `<p class="empty">Aucune donnée pour ${state.year}.</p>`
     : bilanTable(keys, keys.map(k => k.length > 4 ? `<th class="click" data-month="${k}">${mName(k)}</th>` : `<th>Total ${k}</th>`));
 }
@@ -945,7 +971,7 @@ function exportMonth() {
   const aoa = [['Suivi des Ventes TM — ' + mName(ym)], [], RCOLS.map(c => c[1]), ...days.map(d => RCOLS.map(([k]) => val(d, k))),
     RCOLS.map(([k]) => k === 'date' ? 'Total dhs' : k === 'reste' ? endReste : k === 'obs' ? '' : t[k]), [],
     ['Euro', p.euro, '× ' + p.taux, eurDh], ['DHS', endReste - eurDh], ['Total Général', endReste], ['Fonds Caisse', p.fondCaisse], [],
-    ['Total charges', t.charges], ['Résultat (CA − charges)', t.ca - t.charges]];
+    ['CA HT', t.ca], ['Total charges (HT, hors TVA)', t.charges], ['Résultat (CA HT − charges)', t.ca - t.charges]];
   const ch = db.charges.filter(c => c.date.startsWith(ym)).sort((a, b) => a.date.localeCompare(b.date));
   download(`rapport-${ym}.xlsx`, [[mName(ym), aoa, RCOLS.map(c => c[0] === 'obs' ? 30 : 12)], ['Bilan', bilanAoa([ym], [mName(ym)]), [44, 16]],
     ['Charges', [['Date', 'Catégorie', 'Libellé', 'Fournisseur', 'Source', 'Montant'], ...ch.map(c => [fd(c.date), c.cat, c.lib, c.four || '', c.source, c.montant]), [], ['Total', '', '', '', '', t.charges]], [12, 22, 30, 22, 11, 12]]]);
@@ -960,13 +986,13 @@ function toWorkbook() {
   const L = ledger();
   return book([
     ['Journal', [['Date', ...F.map(f => f[1]), 'Observation'], ...Object.keys(db.jours).sort().map(d => [d, ...F.map(f => +db.jours[d][f[0]] || 0), db.jours[d].obs || ''])], [12, ...F.map(() => 12), 30]],
-    ['Charges', [['Date', 'Catégorie', 'Libellé', 'Montant', 'Source', 'Fournisseur', 'Référence'], ...[...db.charges].sort((a, b) => a.date.localeCompare(b.date)).map(c => [c.date, c.cat, c.lib, c.montant, c.source, c.four || '', c.ref || ''])], [12, 22, 30, 12, 11, 22, 14]],
+    ['Charges', [['Date', 'Catégorie', 'Libellé', 'Montant', 'Source', 'Fournisseur', 'Référence', 'TVA %'], ...[...db.charges].sort((a, b) => a.date.localeCompare(b.date)).map(c => [c.date, c.cat, c.lib, c.montant, c.source, c.four || '', c.ref || '', c.tva ?? ''])], [12, 22, 30, 12, 11, 22, 14, 8]],
     ['Fournisseurs', [['Nom', 'Téléphone', 'Solde de départ', 'Solde actuel'], ...db.fours.map(f => [f.nom, f.tel, f.solde0, compte(f.nom).solde])], [26, 16, 14, 14]],
     ['Paiements', [['Date', 'Fournisseur', 'Montant', 'Mode', 'Référence'], ...[...db.paiements].sort((a, b) => a.date.localeCompare(b.date)).map(p => [p.date, p.four, p.montant, p.mode, p.ref])], [12, 26, 12, 10, 14]],
     ['Caisse', [['Date', 'Type', 'Montant', 'Motif'], ...[...db.mvts].sort((a, b) => a.date.localeCompare(b.date)).map(m => [m.date, m.type, m.montant, m.motif])], [12, 10, 12, 30]],
     ['Catégories', [['Catégorie', 'Groupe'], ...db.cats.map(c => [c, grpOf(c)])], [34, 30]],
     ['Paramètres', [['Clé', 'Valeur'], ...Object.entries(db.params), ['savedAt', db.savedAt || 0]], [16, 14]],
-    ['Calculs', [['Date', 'CA', 'Dépense caisse', 'Reçu', 'Versement', 'Entrée caisse', 'Sortie caisse', 'Reste', 'Crédit en cours'], ...L.map(r => [r.date, r.ca, r.dep, r.recu, r.versement, r.entree, r.sortie, r.reste, r.credit])], [12, 12, 14, 12, 12, 13, 13, 12, 14]],
+    ['Calculs', [['Date', 'CA HT', 'CA TTC', 'Dépense caisse', 'Reçu', 'Versement', 'Entrée caisse', 'Sortie caisse', 'Reste', 'Crédit en cours'], ...L.map(r => [r.date, r.ca, r.caTTC, r.dep, r.recu, r.versement, r.entree, r.sortie, r.reste, r.credit])], [12, 12, 12, 14, 12, 12, 13, 13, 12, 14]],
   ]);
 }
 function fromWorkbook(wb) {
@@ -976,7 +1002,8 @@ function fromWorkbook(wb) {
   const nd = { ...DEF(), lastBackup: db.lastBackup };
   for (const r of J) { const d = toIso(r.Date); if (!d) continue; const j = { obs: String(r.Observation || '') }; for (const [k, l] of F) j[k] = num(r[l]); nd.jours[d] = j; }
   for (const r of C) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.charges.push({ id: uid(), date: d, cat: String(r['Catégorie'] || 'Autre'), lib: String(r['Libellé'] || ''), montant: num(r.Montant),
-    source: ['Banque', 'Fournisseur'].includes(r.Source) ? r.Source : 'Caisse', four: String(r.Fournisseur || '').trim(), ref: String(r['Référence'] || '') }); }
+    source: ['Banque', 'Fournisseur'].includes(r.Source) ? r.Source : 'Caisse', four: String(r.Fournisseur || '').trim(), ref: String(r['Référence'] || ''),
+    ...(r['TVA %'] === '' || r['TVA %'] == null ? {} : { tva: num(r['TVA %']) }) }); }
   for (const r of PA || []) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.paiements.push({ id: uid(), date: d, four: String(r.Fournisseur || '').trim(), montant: num(r.Montant), mode: r.Mode === 'Banque' ? 'Banque' : 'Caisse', ref: String(r['Référence'] || '') }); }
   nd.fours = (FO || []).map(r => ({ nom: String(r.Nom || '').trim(), tel: String(r['Téléphone'] || ''), solde0: num(r['Solde de départ']) })).filter(f => f.nom);
   for (const n of [...nd.charges.map(c => c.four), ...nd.paiements.map(p => p.four)]) if (n && !nd.fours.some(f => f.nom === n)) nd.fours.push({ nom: n, tel: '', solde0: 0 });
@@ -1074,7 +1101,10 @@ document.addEventListener('change', e => {
     fillFours(); e.target.value = n || '';
     if (n) { state.four = n; fournisseurs(); }
   }
-  if (e.target.form?.id === 'fOp' && e.target.name === 'type') { const p = e.target.value === 'Paiement'; e.target.form.cat.hidden = p; e.target.form.mode.hidden = !p; }
+  if (e.target.form?.id === 'fOp' && e.target.name === 'type') {
+    const f = e.target.form, p = e.target.value === 'Paiement';
+    f.cat.hidden = f.tva.hidden = p; f.mode.hidden = !p; f.montant.placeholder = p ? 'Montant payé (DH)' : 'Montant HT (DH)';
+  }
   const k = e.target.dataset?.fset, fo = k && db.fours.find(x => x.nom === state.four);
   if (fo) { fo[k] = k === 'tel' ? e.target.value.trim() : num(e.target.value); save(); render(); }
 });
@@ -1095,7 +1125,7 @@ $('#fOp').onsubmit = e => {
   const op = { id: uid(), date: f.date.value, four, ref: f.ref.value.trim() };
   if (type === 'Paiement') db.paiements.push({ ...op, montant: m, mode: f.mode.value });
   else if (f.cat.value === NEW_CAT) return alert('Choisissez une catégorie.');
-  else db.charges.push({ ...op, cat: f.cat.value, lib: type, montant: type === 'Avoir' ? -m : m, source: 'Fournisseur' }); // avoir = charge négative
+  else db.charges.push({ ...op, cat: f.cat.value, lib: type, montant: type === 'Avoir' ? -m : m, tva: +f.tva.value, source: 'Fournisseur' }); // HT ; avoir = charge négative
   state.four = four; save(); f.ref.value = ''; f.montant.value = ''; render();
 };
 $('#dDate').onchange = e => setDate(e.target.value);
@@ -1146,7 +1176,8 @@ let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() 
 // Auto-test des formules : ouvrir index.html?test
 if (location.search.includes('test')) {
   const FIX = { jours: { '2026-10-01': { esp: 1000, cb: 500, glovoEsp: 999, glovoLigne: 200, creditClient: 100, creditPaye: 50, versement: 800 } },
-    charges: [{ date: '2026-10-01', cat: 'Loyer', montant: 150, source: 'Caisse' }, { date: '2026-10-01', cat: 'Divers', montant: 300, source: 'Banque' }],
+    charges: [{ date: '2026-10-01', cat: 'Loyer', montant: 150, source: 'Caisse' }, { date: '2026-10-01', cat: 'Divers', montant: 300, source: 'Banque' },
+      { date: '2026-10-01', cat: 'TVA', montant: 500, source: 'Banque' }],
     cats: ['Loyer', 'Divers'], catGrp: { Loyer: 'Logement', Divers: VAR }, params: { soldeInitial: 100 },
     mvts: [{ date: '2026-10-01', type: 'Sortie', montant: 200 }, { date: '2026-10-01', type: 'Entrée', montant: 50 }, { date: '2026-10-02', type: 'Sortie', montant: 100 }], fours: [], paiements: [] };
   const [r, r2] = ledger(FIX);
@@ -1155,21 +1186,24 @@ if (location.search.includes('test')) {
   const real = db; db = FIX;
   const st = stats('2026-10');
   checks['Total du mois'] = st.t.ca === 1950;
-  checks['Répartition du CA'] = sumBy(st.mix, m => m[1]) === st.t.ca;   // la barre empilée doit faire 100 % du CA
+  checks['Répartition du CA'] = sumBy(st.mix, m => m[1]) === st.t.caTTC; // la barre empilée doit faire 100 % du CA encaissé
   checks['CA cumulé'] = st.cumA.at(-1) === st.t.ca;
   checks['Résultat'] = st.res === 1500 && Math.round(st.marge) === 77;
+  checks['TVA hors charges'] = r.tvaPayee === 500 && r.charges === 450;
+  const H = ledger({ ...FIX, params: { ...FIX.params, tvaVentes: 10 } })[0];   // ventes saisies TTC, CA suivi HT
+  checks['CA HT'] = H.caTTC === 1950 && Math.abs(H.ca * 1.1 - 1950) < 1e-9 && Math.abs(H.ca + H.tvaCol - 1950) < 1e-9;
   const B = bilanRows(['2026-10']), bv = l => B.find(x => x.label === l).vals[0];
-  checks['Bilan TABLE M'] = bv('TOTAL REVENUS') === 1950 && bv('TOTAL DÉPENSES FIXES') === 150 && bv('TOTAL DÉPENSES VARIABLES') === 300 && bv('RESTE AU TOTAL') === st.res;
+  checks['Bilan TABLE M'] = bv('TOTAL REVENUS') === 1950 && bv('TOTAL DÉPENSES FIXES') === 150 && bv('TOTAL DÉPENSES VARIABLES') === 300 && bv('RESTE AU TOTAL') === st.res && bv('TVA payée à la DGI') === 500;
   db = real;
   const mg = migrateCats(['Achats marchandises', 'Transport', 'Ma catégorie'], [{ cat: 'Achats marchandises' }]);
   checks['Migration catégories'] = mg.cats.includes('Achats marchandises') && mg.cats.includes('Ma catégorie') && !mg.cats.includes('Transport') && mg.cats.includes('Boucherie');
-  // fournisseur : départ 500 + facture 1200 − avoir 100 − paiement espèces 300 − paiement banque 1000 = 300 dus
+  // fournisseur : départ 500 + facture 1200 HT (1440 TTC) − avoir 100 HT (120 TTC) − paiement espèces 300 − paiement banque 1000 = 520 dus
   const FX = { ...DEF(), fours: [{ nom: 'F1', solde0: 500 }],
-    charges: [{ date: '2026-10-02', montant: 1200, source: 'Fournisseur', four: 'F1' }, { date: '2026-10-02', montant: -100, source: 'Fournisseur', four: 'F1' }],
+    charges: [{ date: '2026-10-02', montant: 1200, tva: 20, source: 'Fournisseur', four: 'F1' }, { date: '2026-10-02', montant: -100, tva: 20, source: 'Fournisseur', four: 'F1' }],
     paiements: [{ date: '2026-10-03', four: 'F1', montant: 300, mode: 'Caisse' }, { date: '2026-10-03', four: 'F1', montant: 1000, mode: 'Banque' }] };
   const [fa, fp] = ledger(FX), cf = compte('F1', FX);
-  checks['Solde fournisseur'] = cf.solde === 300 && cf.fact === 1200 && cf.regl === 1400;
-  checks['Facture = charge, hors caisse'] = fa.charges === 1100 && fa.dep === 0;
+  checks['Solde fournisseur (TTC)'] = cf.solde === 520 && cf.fact === 1440 && cf.regl === 1420;
+  checks['Facture = charge HT, hors caisse'] = fa.charges === 1100 && fa.dep === 0 && fa.tvaRec === 220;
   checks['Paiement espèces = dépense caisse, pas une charge'] = fp.dep === 300 && fp.payF === 300 && fp.charges === 0;
   const bad = Object.keys(checks).filter(k => !checks[k]);
   alert(bad.length ? 'Auto-test ÉCHEC : ' + bad.join(', ') : 'Auto-test OK ✓');
