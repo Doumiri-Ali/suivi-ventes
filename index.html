@@ -78,6 +78,7 @@ fieldset{border:0;padding:0;margin:0 0 18px}legend{font-weight:600;margin-bottom
 .addc{display:grid;grid-template-columns:1.2fr 1.6fr 1fr .9fr auto;gap:8px;margin-bottom:12px}
 .addc.wd{grid-template-columns:auto 1.2fr 1.6fr 1fr .9fr auto}
 .addc.mv{grid-template-columns:auto auto 1.6fr 1fr auto}
+.addf{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:12px}
 .tw{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
 th,td{padding:7px 8px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
@@ -130,6 +131,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
     <button data-p="saisie">Saisie du jour</button>
     <button data-p="charges">Charges</button>
     <button data-p="caisse">Caisse</button>
+    <button data-p="fournisseurs">Fournisseurs</button>
     <button data-p="rapport">Rapport du mois</button>
     <button data-p="bilan">Bilan mensuel</button>
     <button data-p="params">Paramètres &amp; sauvegarde</button>
@@ -187,7 +189,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
       <select name="source"><option>Caisse</option><option>Banque</option></select>
       <button class="btn pri">Ajouter</button>
     </form>
-    <p class="help" style="margin:0">« Caisse » = payé avec l'argent de la caisse (compté dans la colonne <b>Dépense</b> du jour). « Banque » = payé par virement / chèque.</p>
+    <p class="help" style="margin:0">« Caisse » = payé avec l'argent de la caisse (compté dans la colonne <b>Dépense</b> du jour). « Banque » = payé par virement / chèque. Les achats à crédit (factures fournisseurs) se saisissent dans l'onglet <b>Fournisseurs</b>.</p>
   </div>
   <div class="grid2" style="margin-bottom:16px">
     <div class="card"><h2>Total du mois</h2><div id="chTot"></div></div>
@@ -212,6 +214,28 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
     <div class="card"><h2>Argent en caisse</h2><div id="cTot"></div></div>
     <div class="card"><h2>Entrées et sorties du mois</h2><div class="tw" id="cList"></div></div>
   </div>
+</section>
+
+<section id="p-fournisseurs" class="page" hidden>
+  <div class="bar"><h1>Fournisseurs</h1><button class="btn" onclick="print()">Imprimer</button></div>
+  <div class="kpis" id="fTiles"></div>
+  <div class="card noprint"><h2>Nouvelle opération</h2>
+    <form id="fOp" class="addf" autocomplete="off">
+      <input type="date" name="date" required aria-label="Date">
+      <select name="four" aria-label="Fournisseur"></select>
+      <select name="type" aria-label="Opération"><option value="Facture">Facture (à crédit)</option><option value="Paiement">Paiement</option><option value="Avoir">Avoir / retour</option></select>
+      <input name="ref" placeholder="N° facture / chèque">
+      <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant DH" required>
+      <select name="cat" aria-label="Catégorie"></select>
+      <select name="mode" aria-label="Payé par" hidden><option value="Caisse">Payé en espèces (caisse)</option><option value="Banque">Payé par banque / chèque</option></select>
+      <button class="btn pri">Ajouter</button>
+    </form>
+    <p class="help" style="margin:0"><b>Facture</b> : achat à crédit — compté dans les charges du mois, augmente ce que vous devez.
+      <b>Paiement</b> : vous payez le fournisseur — en espèces, il compte dans la colonne Dépense du jour comme une charge payée en caisse (jamais compté deux fois dans les charges).
+      <b>Avoir</b> : retour ou remise du fournisseur — diminue ce que vous devez et les charges. Si vous payez plus que les factures (avance), c'est le fournisseur qui vous doit.</p>
+  </div>
+  <div class="card"><h2>État des fournisseurs<span class="noprint"> — cliquez une ligne pour voir le relevé</span></h2><div class="tw" id="fEtat"></div></div>
+  <div class="card" id="fDet" hidden></div>
 </section>
 
 <section id="p-rapport" class="page" hidden>
@@ -271,7 +295,7 @@ const F = [
   ['versement', 'Versement', 'caisse', 'Versé à la banque (Vrs Esp)'],
 ];
 const GROUPS = [['enc', 'Encaissements'], ['cred', 'Crédit clients'], ['perte', 'Remises & pertes (pour info)'], ['caisse', 'Caisse']];
-const NUM = [...F.map(f => f[0]), 'dep', 'charges', 'ca', 'recu', 'entree', 'sortie'];
+const NUM = [...F.map(f => f[0]), 'dep', 'charges', 'ca', 'recu', 'entree', 'sortie', 'payF'];
 // Colonnes du rapport, dans l'ordre de la feuille Excel d'origine
 const RCOLS = [['date', 'Date'], ['ca', 'CA'], ['esp', 'Espèce'], ['cb', 'Carte Crédit'], ['vir', 'Vir/Chéq'], ['glovoEsp', 'Glovo/Espèce'], ['glovoLigne', 'Glovo/En ligne'],
   ['creditPaye', 'Crédit Payé'], ['creditClient', 'Crédit Client'], ['remise', 'Remise'], ['offert', 'Offert'], ['perte', 'Perte'], ['annul', 'Annulation'],
@@ -301,7 +325,7 @@ const sumBy = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
 
 // ---------- stockage ----------
 const withUsed = (cats, charges = []) => [...new Set([...cats, ...charges.map(c => c.cat)])];
-const DEF = () => ({ jours: {}, charges: [], mvts: [], cats: [...CATS], params: { soldeInitial: 0, fondCaisse: 0, euro: 0, taux: 10 }, lastBackup: null });
+const DEF = () => ({ jours: {}, charges: [], mvts: [], fours: [], paiements: [], cats: [...CATS], params: { soldeInitial: 0, fondCaisse: 0, euro: 0, taux: 10 }, lastBackup: null });
 // Les données vont dans un fichier Excel choisi par l'utilisateur (Chrome / Edge).
 // Le navigateur en garde aussi une copie (localStorage), utilisée si le fichier n'est pas accessible.
 function load() {
@@ -325,7 +349,8 @@ function load() {
 const DEMO = new URLSearchParams(location.search).has('demo');
 function demoData() {
   const rnd = (x => () => (x = x * 16807 % 2147483647) / 2147483647)(42);
-  const d = { ...DEF(), params: { soldeInitial: 4200, fondCaisse: 2000, euro: 150, taux: 10 } };
+  const d = { ...DEF(), params: { soldeInitial: 4200, fondCaisse: 2000, euro: 150, taux: 10 },
+    fours: [{ nom: 'Boucherie Atlas', tel: '', solde0: 3200 }, { nom: 'Grossiste Boissons', tel: '', solde0: 0 }] };
   const K = [.75, .9, .95, 1, 1.15, 1.45, 1.35];            // dimanche → samedi
   const t = today(), cur = t.slice(0, 7);
   for (const ym of [prevYm(cur), cur]) for (const iso of daysOf(ym)) {
@@ -336,6 +361,11 @@ function demoData() {
       d.charges.push({ id: uid(), date: iso, cat: c, lib: '', montant: v, source: 'Banque' });
     if (wd === 1 && rnd() < .5) continue;                   // fermé certains lundis
     if (rnd() < .12) d.mvts.push({ id: uid(), date: iso, type: 'Sortie', montant: 500 * Math.ceil(rnd() * 4), motif: 'Retrait personnel' });
+    const fac = (four, x, p) => d.charges.push({ id: uid(), date: iso, cat: 'Achats marchandises', lib: 'Facture', montant: r(x), source: 'Fournisseur', four, ref: p + iso.slice(5).replace('-', '') });
+    if (wd === 2) fac('Boucherie Atlas', .5, 'BA-');
+    if (wd === 4) fac('Grossiste Boissons', .35, 'GB-');
+    if (wd === 5) d.paiements.push({ id: uid(), date: iso, four: 'Boucherie Atlas', montant: r(.45), mode: 'Banque', ref: 'Chèque' });
+    if (+iso.slice(8) === 15) d.paiements.push({ id: uid(), date: iso, four: 'Grossiste Boissons', montant: 3000, mode: 'Banque', ref: 'Virement' });
     d.jours[iso] = { esp: r(.52), cb: r(.3), vir: rnd() < .2 ? r(.08) : 0, glovoEsp: r(.04), glovoLigne: r(.11),
       creditClient: rnd() < .3 ? r(.07) : 0, creditPaye: rnd() < .25 ? r(.05) : 0, remise: rnd() < .4 ? r(.012) : 0,
       offert: rnd() < .3 ? r(.008) : 0, perte: rnd() < .15 ? r(.01) : 0, annul: rnd() < .1 ? r(.006) : 0,
@@ -391,7 +421,7 @@ async function newFile() {
 }
 async function openFile() {
   if (demoBlock()) return;
-  if ((db.charges.length || db.mvts.length || Object.keys(db.jours).length) && !confirm('Les données du fichier vont remplacer celles affichées. Continuer ?')) return;
+  if ((db.charges.length || db.mvts.length || db.fours.length || Object.keys(db.jours).length) && !confirm('Les données du fichier vont remplacer celles affichées. Continuer ?')) return;
   try { const [h] = await showOpenFilePicker(XLSX_PICK); await useFile(h, 'ouvrir'); } catch (e) { fail(e); }
 }
 async function reconnect() {
@@ -420,15 +450,18 @@ async function initFile() { // reprendre le fichier utilisé la dernière fois
 
 // ---------- calculs (les formules de la feuille Excel) ----------
 function ledger(d = db) {
-  const byDate = {}, mvByDate = {};
+  const byDate = {}, mvByDate = {}, payByDate = {};
   for (const c of d.charges) (byDate[c.date] ??= []).push(c);
   for (const m of d.mvts) (mvByDate[m.date] ??= []).push(m);
-  const dates = [...new Set([...Object.keys(d.jours), ...Object.keys(byDate), ...Object.keys(mvByDate)])].sort();
+  for (const p of d.paiements) if (p.mode === 'Caisse') (payByDate[p.date] ??= []).push(p);
+  const dates = [...new Set([d.jours, byDate, mvByDate, payByDate].flatMap(Object.keys))].sort();
   let reste = +d.params.soldeInitial || 0, credit = 0;
   return dates.map(date => {
     const j = d.jours[date] || {}, ch = byDate[date] || [], r = { date, obs: j.obs || '' };
     for (const [k] of F) r[k] = +j[k] || 0;
-    r.dep = sumBy(ch.filter(c => c.source === 'Caisse'), c => +c.montant || 0);
+    // fournisseur payé en espèces : sort de la caisse comme une dépense, sans être une charge de plus (la facture l'est déjà)
+    r.payF = sumBy(payByDate[date] || [], p => +p.montant || 0);
+    r.dep = sumBy(ch.filter(c => c.source === 'Caisse'), c => +c.montant || 0) + r.payF;
     r.charges = sumBy(ch, c => +c.montant || 0);
     r.ca = r.esp + r.cb + r.vir + r.glovoLigne + r.creditClient + r.dep; // colonne B
     r.recu = r.esp + r.creditPaye;                                        // colonne P
@@ -570,7 +603,7 @@ const insList = o => o.length
   : '<p class="empty">Aucune vente saisie pour ce mois : les constats apparaîtront dès la première journée saisie.</p>';
 
 // ---------- pages ----------
-const state = { page: location.hash.slice(1), ym: today().slice(0, 7), date: today(), year: new Date().getFullYear() };
+const state = { page: location.hash.slice(1), ym: today().slice(0, 7), date: today(), year: new Date().getFullYear(), four: null };
 
 function dash() {
   const st = stats(state.ym), t = st.t, eurDh = db.params.euro * db.params.taux;
@@ -579,12 +612,13 @@ function dash() {
     kpi('Chiffre d\'affaires — ' + mName(st.ym), fmt(t.ca) + ' DH',
       st.delta == null ? `${st.act.length} jour(s) avec ventes` : `${dchip(st.delta)} vs ${period}${mName(st.prev)} (${fmt(st.p.ca)} DH)`, 'lead') +
     kpi('Résultat (CA − charges)', signed(st.res), 'marge ' + pct(st.marge)) +
-    kpi('Charges du mois', fmt(t.charges), `dont ${fmt(t.dep)} payés en caisse` + (t.ca ? ` · ${pct(t.charges / t.ca * 100)} du CA` : '')) +
+    kpi('Charges du mois', fmt(t.charges), `dont ${fmt(t.dep - t.payF)} payés en caisse` + (t.ca ? ` · ${pct(t.charges / t.ca * 100)} du CA` : '')) +
     kpi('CA moyen par jour travaillé', fmt(st.avg), st.act.length + ' jour(s) avec ventes') +
     kpi(st.proj ? 'Projection fin de mois' : 'Remises, offerts, pertes', st.proj ? fmt(st.proj) : fmt(st.pertes),
       st.proj ? `au rythme des ${st.elapsed} premiers jours` : (t.ca ? pct(st.pertes / t.ca * 100) + ' du CA' : '')) +
     kpi('Reste en caisse', fmt(st.end.reste), `au ${fd(st.ref)}` + (t.sortie ? ` · ${fmt(t.sortie)} sortis ce mois` : '') + (db.params.euro ? ` · dont ${fmt(db.params.euro)} € (${fmt(eurDh)} DH)` : '')) +
-    kpi('Crédit clients en cours', fmt(st.end.credit), 'à récupérer auprès des clients');
+    kpi('Crédit clients en cours', fmt(st.end.credit), 'à récupérer auprès des clients') +
+    (db.fours.length ? kpi('À payer aux fournisseurs', fmt(sumBy(db.fours, f => Math.max(0, compte(f.nom).solde))), 'solde actuel · onglet Fournisseurs') : '');
   $('#dIns').innerHTML = insList(insights(st));
   const days = st.all;
   colChart($('#chDay'), days.map(d => +d.slice(8)), days.map(dLabel),
@@ -614,7 +648,7 @@ function live() {
   const st = at(L, state.date), mtd = sumBy(monthRows(L, ym).filter(x => x.date <= state.date), x => x.ca);
   $('#live').innerHTML = `<div class="tl">CA du ${dLabel(state.date)}</div><div class="big">${fmt(r.ca)} <small style="font-size:16px">DH</small></div>
     <div class="formula">= Espèce + Carte + Vir/Chéq + Glovo en ligne + Crédit client + Dépenses caisse</div>
-    ${kv('Dépenses caisse du jour', fmt(r.dep), 'ajoutées en bas de page')}
+    ${kv('Dépenses caisse du jour', fmt(r.dep), r.payF ? `dont ${fmt(r.payF)} payés aux fournisseurs` : 'ajoutées en bas de page')}
     ${kv('Reçu par ' + RESP, fmt(r.recu), 'Espèce + Crédit payé')}
     ${r.entree || r.sortie ? kv('Entrées − sorties de caisse', signed(r.entree - r.sortie), 'onglet Caisse') : ''}
     ${kv('Reste en caisse', fmt(st.reste), 'Reste veille + Reçu − Versement + Entrées − Sorties')}
@@ -626,7 +660,7 @@ function live() {
 }
 function chargeTable(list, withDate) {
   return `<table><thead><tr>${withDate ? '<th>Date</th>' : ''}<th class="t">Catégorie</th><th class="t">Libellé</th><th class="t">Source</th><th>Montant</th><th></th></tr></thead><tbody>` +
-    list.map(c => `<tr>${withDate ? `<td>${fd(c.date)}</td>` : ''}<td class="t">${esc(c.cat)}</td><td class="t">${esc(c.lib)}</td><td class="t">${esc(c.source)}</td><td>${fmt(c.montant)}</td><td><button class="x" data-del="${esc(c.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
+    list.map(c => `<tr>${withDate ? `<td>${fd(c.date)}</td>` : ''}<td class="t">${esc(c.cat)}</td><td class="t">${esc([c.lib, c.four, c.ref && 'n° ' + c.ref].filter(Boolean).join(' · '))}</td><td class="t">${esc(c.source)}</td><td>${fmt(c.montant)}</td><td><button class="x" data-del="${esc(c.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
     `</tbody><tfoot><tr><td colspan="${withDate ? 4 : 3}">Total</td><td>${fmt(sumBy(list, c => +c.montant))}</td><td></td></tr></tfoot></table>`;
 }
 
@@ -634,9 +668,10 @@ function charges() {
   const f = document.querySelector('#p-charges .fCharge');
   if (!f.date.value.startsWith(state.ym)) f.date.value = today().startsWith(state.ym) ? today() : state.ym + '-01';
   const list = db.charges.filter(c => c.date.startsWith(state.ym)).sort((a, b) => b.date.localeCompare(a.date));
-  const caisse = sumBy(list.filter(c => c.source === 'Caisse'), c => +c.montant);
-  $('#chTot').innerHTML = `<div class="big">${fmt(caisse + sumBy(list.filter(c => c.source !== 'Caisse'), c => +c.montant))} <small style="font-size:16px">DH</small></div>` +
-    kv('Payé en caisse', fmt(caisse)) + kv('Payé par banque', fmt(sumBy(list, c => +c.montant) - caisse)) + kv('Nombre de charges', list.length);
+  const by = s => sumBy(list.filter(c => c.source === s), c => +c.montant), fac = by('Fournisseur');
+  $('#chTot').innerHTML = `<div class="big">${fmt(sumBy(list, c => +c.montant))} <small style="font-size:16px">DH</small></div>` +
+    kv('Payé en caisse', fmt(by('Caisse'))) + kv('Payé par banque', fmt(by('Banque'))) +
+    (fac ? kv('Factures fournisseurs (à crédit)', fmt(fac), 'payées ou non : voir l\'onglet Fournisseurs') : '') + kv('Nombre de charges', list.length);
   $('#chCat').innerHTML = hbars(chargesByCat(state.ym));
   $('#chList').innerHTML = list.length ? chargeTable(list, true) : '<p class="empty">Aucune charge pour ' + mName(state.ym) + '.</p>';
 }
@@ -652,6 +687,45 @@ function caisse() {
   $('#cList').innerHTML = !list.length ? '<p class="empty">Aucune entrée ni sortie pour ' + mName(ym) + '.</p>'
     : `<table><thead><tr><th>Date</th><th class="t">Type</th><th class="t">Motif</th><th>Montant</th><th></th></tr></thead><tbody>` +
       list.map(m => `<tr><td>${fd(m.date)}</td><td class="t">${esc(m.type)}</td><td class="t">${esc(m.motif)}</td><td>${signed(m.type === 'Entrée' ? m.montant : -m.montant)}</td><td><button class="x" data-delmv="${esc(m.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') + '</tbody></table>';
+}
+
+// Compte fournisseur : solde > 0 = vous lui devez, < 0 = il vous doit.
+// Factures (+) et avoirs (−) sont des charges « Fournisseur » ; les paiements sont dans db.paiements.
+const cent = v => Math.round(v * 100) / 100;
+function compte(nom, d = db) {
+  const f = d.fours.find(x => x.nom === nom) || {}, solde0 = +f.solde0 || 0;
+  const ops = [...d.charges.filter(c => c.source === 'Fournisseur' && c.four === nom).map(c => ({ ...c, op: c.montant < 0 ? 'Avoir' : 'Facture', v: +c.montant || 0, del: 'del' })),
+    ...d.paiements.filter(p => p.four === nom).map(p => ({ ...p, op: p.mode === 'Caisse' ? 'Paiement espèces' : 'Paiement banque', v: -(+p.montant || 0), del: 'delpay' }))]
+    .sort((a, b) => a.date.localeCompare(b.date));
+  let solde = solde0;
+  for (const o of ops) o.solde = solde = cent(solde + o.v);
+  return { nom, tel: f.tel || '', solde0, ops, solde, fact: sumBy(ops, o => Math.max(0, o.v)), regl: -sumBy(ops, o => Math.min(0, o.v)) };
+}
+const sl = (s, nom) => s > 0 ? `Vous devez ${fmt(s)} DH à ${esc(nom)}` : s < 0 ? `${esc(nom)} vous doit ${fmt(-s)} DH` : 'Compte soldé ✓';
+function fournisseurs() {
+  const f = $('#fOp').elements;
+  if (!f.date.value) f.date.value = today();
+  const C = db.fours.map(x => compte(x.nom)).sort((a, b) => b.solde - a.solde), du = C.filter(c => c.solde > 0), doit = C.filter(c => c.solde < 0);
+  $('#fTiles').innerHTML = kpi('Vous devez aux fournisseurs', fmt(sumBy(du, c => c.solde)), `${du.length} fournisseur(s) à payer`, 'lead') +
+    kpi('Les fournisseurs vous doivent', fmt(-sumBy(doit, c => c.solde)), 'avances ou avoirs pas encore utilisés') + kpi('Fournisseurs', C.length, '');
+  const money = v => v ? fmt(v) : '';
+  $('#fEtat').innerHTML = !C.length ? '<p class="empty">Aucun fournisseur : choisissez « ➕ Nouveau fournisseur… » dans la liste ci-dessus.</p>'
+    : `<table><thead><tr><th>Fournisseur</th><th class="t">Téléphone</th><th>Solde de départ</th><th>Facturé</th><th>Payé + avoirs</th><th>Vous devez</th><th>Il vous doit</th></tr></thead><tbody>` +
+      C.map(c => `<tr class="click" data-four="${esc(c.nom)}"><td>${state.four === c.nom ? '<b>' + esc(c.nom) + '</b>' : esc(c.nom)}</td><td class="t">${esc(c.tel)}</td><td>${money(c.solde0)}</td><td>${money(c.fact)}</td><td>${money(c.regl)}</td><td class="bad">${c.solde > 0 ? fmt(c.solde) : ''}</td><td class="good">${c.solde < 0 ? fmt(-c.solde) : ''}</td></tr>`).join('') +
+      `</tbody><tfoot><tr><td colspan="5">Total</td><td>${fmt(sumBy(du, c => c.solde))}</td><td>${fmt(-sumBy(doit, c => c.solde))}</td></tr></tfoot></table>`;
+  const c = db.fours.some(x => x.nom === state.four) && compte(state.four);
+  $('#fDet').hidden = !c;
+  if (!c) return;
+  $('#fDet').innerHTML = `<h2>Relevé de compte — ${esc(c.nom)}</h2><div class="big" style="font-size:26px;margin-bottom:12px">${sl(c.solde, c.nom)}</div>
+    <div class="flds noprint" style="margin-bottom:12px;max-width:440px">
+      <label class="fld"><span>Téléphone</span><input data-fset="tel" value="${esc(c.tel)}"></label>
+      <label class="fld"><span>Solde de départ (DH)</span><input data-fset="solde0" type="number" step="0.01" value="${c.solde0}"><small>dette déjà due avant la 1re facture saisie (− si c'est lui qui vous devait)</small></label></div>
+    <div class="tw"><table><thead><tr><th>Date</th><th class="t">Opération</th><th class="t">Référence</th><th>Facturé</th><th>Payé / avoir</th><th>Solde</th><th></th></tr></thead><tbody>
+      <tr><td></td><td class="t">Solde de départ</td><td></td><td></td><td></td><td>${fmt(c.solde0)}</td><td></td></tr>` +
+      c.ops.map(o => `<tr><td>${fd(o.date)}</td><td class="t">${o.op}</td><td class="t">${esc(o.ref)}</td><td>${o.v > 0 ? fmt(o.v) : ''}</td><td>${o.v < 0 ? fmt(-o.v) : ''}</td><td>${fmt(o.solde)}</td><td><button class="x" data-${o.del}="${esc(o.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
+      `</tbody><tfoot><tr><td colspan="3">Total</td><td>${fmt(c.fact)}</td><td>${fmt(c.regl)}</td><td>${fmt(c.solde)}</td><td></td></tr></tfoot></table></div>
+    <p class="help">Solde positif = vous devez au fournisseur · négatif = il vous doit.</p>` +
+    (c.ops.length ? '' : `<button class="btn noprint" data-delfour="${esc(c.nom)}">Supprimer ce fournisseur</button>`);
 }
 
 function rapport() {
@@ -681,7 +755,7 @@ function rapport() {
     <div class="card"><h2>CA moyen par jour de la semaine (DH)</h2><div id="rDow" class="chart"></div></div>
     <div class="card"><h2>Caisse en fin de période</h2>
       ${kv('Euro', `${fmt(p.euro)} € × ${p.taux} = ${fmt(eurDh)}`)}${kv('Dirhams', fmt(endReste - eurDh))}${kv('<b>Total général</b>', fmt(endReste))}${kv('Fonds de caisse', fmt(p.fondCaisse))}
-      ${kv('Versements à la banque', fmt(t.versement), 'sur le mois')}${kv('Entrées / sorties de caisse', `+${fmt(t.entree)} / −${fmt(t.sortie)}`, 'sur le mois, hors CA')}${kv('Crédit clients en cours', fmt(st.end.credit))}
+      ${kv('Versements à la banque', fmt(t.versement), 'sur le mois')}${kv('Entrées / sorties de caisse', `+${fmt(t.entree)} / −${fmt(t.sortie)}`, 'sur le mois, hors CA')}${t.payF ? kv('Fournisseurs payés en espèces', fmt(t.payF), 'compris dans la colonne Dépense') : ''}${kv('Crédit clients en cours', fmt(st.end.credit))}
     </div>
   </div>
   <div class="card pbreak"><h2>Détail jour par jour<span class="noprint"> — cliquez une ligne pour la modifier</span></h2><div class="tw"><table>
@@ -740,7 +814,7 @@ function exportMonth() {
     ['Total charges', t.charges], ['Résultat (CA − charges)', t.ca - t.charges]];
   const ch = db.charges.filter(c => c.date.startsWith(ym)).sort((a, b) => a.date.localeCompare(b.date));
   download(`rapport-${ym}.xlsx`, [[mName(ym), aoa, RCOLS.map(c => c[0] === 'obs' ? 30 : 12)],
-    ['Charges', [['Date', 'Catégorie', 'Libellé', 'Source', 'Montant'], ...ch.map(c => [fd(c.date), c.cat, c.lib, c.source, c.montant]), [], ['Total', '', '', '', t.charges]], [12, 22, 30, 10, 12]]]);
+    ['Charges', [['Date', 'Catégorie', 'Libellé', 'Fournisseur', 'Source', 'Montant'], ...ch.map(c => [fd(c.date), c.cat, c.lib, c.four || '', c.source, c.montant]), [], ['Total', '', '', '', '', t.charges]], [12, 22, 30, 22, 11, 12]]]);
 }
 function exportYear() {
   const M = yearData();
@@ -751,7 +825,9 @@ function toWorkbook() {
   const L = ledger();
   return book([
     ['Journal', [['Date', ...F.map(f => f[1]), 'Observation'], ...Object.keys(db.jours).sort().map(d => [d, ...F.map(f => +db.jours[d][f[0]] || 0), db.jours[d].obs || ''])], [12, ...F.map(() => 12), 30]],
-    ['Charges', [['Date', 'Catégorie', 'Libellé', 'Montant', 'Source'], ...[...db.charges].sort((a, b) => a.date.localeCompare(b.date)).map(c => [c.date, c.cat, c.lib, c.montant, c.source])], [12, 22, 30, 12, 10]],
+    ['Charges', [['Date', 'Catégorie', 'Libellé', 'Montant', 'Source', 'Fournisseur', 'Référence'], ...[...db.charges].sort((a, b) => a.date.localeCompare(b.date)).map(c => [c.date, c.cat, c.lib, c.montant, c.source, c.four || '', c.ref || ''])], [12, 22, 30, 12, 11, 22, 14]],
+    ['Fournisseurs', [['Nom', 'Téléphone', 'Solde de départ', 'Solde actuel'], ...db.fours.map(f => [f.nom, f.tel, f.solde0, compte(f.nom).solde])], [26, 16, 14, 14]],
+    ['Paiements', [['Date', 'Fournisseur', 'Montant', 'Mode', 'Référence'], ...[...db.paiements].sort((a, b) => a.date.localeCompare(b.date)).map(p => [p.date, p.four, p.montant, p.mode, p.ref])], [12, 26, 12, 10, 14]],
     ['Caisse', [['Date', 'Type', 'Montant', 'Motif'], ...[...db.mvts].sort((a, b) => a.date.localeCompare(b.date)).map(m => [m.date, m.type, m.montant, m.motif])], [12, 10, 12, 30]],
     ['Catégories', [['Catégorie'], ...db.cats.map(c => [c])], [26]],
     ['Paramètres', [['Clé', 'Valeur'], ...Object.entries(db.params), ['savedAt', db.savedAt || 0]], [16, 14]],
@@ -760,11 +836,15 @@ function toWorkbook() {
 }
 function fromWorkbook(wb) {
   const rows = n => wb.Sheets[n] && XLSX.utils.sheet_to_json(wb.Sheets[n], { defval: '' });
-  const J = rows('Journal'), C = rows('Charges'), P = rows('Paramètres'), K = rows('Catégories'), M = rows('Caisse');
+  const J = rows('Journal'), C = rows('Charges'), P = rows('Paramètres'), K = rows('Catégories'), M = rows('Caisse'), FO = rows('Fournisseurs'), PA = rows('Paiements');
   if (!J || !C) return null;
   const nd = { ...DEF(), lastBackup: db.lastBackup };
   for (const r of J) { const d = toIso(r.Date); if (!d) continue; const j = { obs: String(r.Observation || '') }; for (const [k, l] of F) j[k] = num(r[l]); nd.jours[d] = j; }
-  for (const r of C) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.charges.push({ id: uid(), date: d, cat: String(r['Catégorie'] || 'Autre'), lib: String(r['Libellé'] || ''), montant: num(r.Montant), source: r.Source === 'Banque' ? 'Banque' : 'Caisse' }); }
+  for (const r of C) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.charges.push({ id: uid(), date: d, cat: String(r['Catégorie'] || 'Autre'), lib: String(r['Libellé'] || ''), montant: num(r.Montant),
+    source: ['Banque', 'Fournisseur'].includes(r.Source) ? r.Source : 'Caisse', four: String(r.Fournisseur || '').trim(), ref: String(r['Référence'] || '') }); }
+  for (const r of PA || []) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.paiements.push({ id: uid(), date: d, four: String(r.Fournisseur || '').trim(), montant: num(r.Montant), mode: r.Mode === 'Banque' ? 'Banque' : 'Caisse', ref: String(r['Référence'] || '') }); }
+  nd.fours = (FO || []).map(r => ({ nom: String(r.Nom || '').trim(), tel: String(r['Téléphone'] || ''), solde0: num(r['Solde de départ']) })).filter(f => f.nom);
+  for (const n of [...nd.charges.map(c => c.four), ...nd.paiements.map(p => p.four)]) if (n && !nd.fours.some(f => f.nom === n)) nd.fours.push({ nom: n, tel: '', solde0: 0 });
   for (const r of M || []) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.mvts.push({ id: uid(), date: d, type: r.Type === 'Entrée' ? 'Entrée' : 'Sortie', montant: num(r.Montant), motif: String(r.Motif || '') }); }
   nd.cats = K ? [...new Set(K.map(r => String(r['Catégorie']).trim()).filter(Boolean))] : withUsed(nd.cats, nd.charges);
   for (const r of P || []) { if (r['Clé'] in nd.params) nd.params[r['Clé']] = num(r.Valeur); if (r['Clé'] === 'savedAt') nd.savedAt = num(r.Valeur); }
@@ -791,13 +871,13 @@ async function restore(file) {
 }
 
 // ---------- navigation & événements ----------
-const PAGES = { dash, saisie, charges, caisse, rapport, bilan, params };
+const PAGES = { dash, saisie, charges, caisse, fournisseurs, rapport, bilan, params };
 function render() {
   if (!PAGES[state.page]) state.page = 'dash';
   document.querySelectorAll('.page').forEach(s => s.hidden = s.id !== 'p-' + state.page);
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.p === state.page));
   document.querySelectorAll('.ym').forEach(i => i.value = state.ym);
-  fillCats();
+  fillCats(); fillFours();
   renderBanner();
   PAGES[state.page]();
 }
@@ -812,6 +892,19 @@ function addCat(name) { // renvoie le nom enregistré (sans doublon, majuscules 
   const found = db.cats.find(x => x.toLowerCase() === c.toLowerCase());
   if (found) return found;
   db.cats.push(c); save(); return c;
+}
+const NEW_FOUR = '__nouveau';
+function fillFours() {
+  const s = $('#fOp').elements.four, v = s.value;
+  s.innerHTML = '<option value="">— Fournisseur —</option>' + [...db.fours].sort((a, b) => a.nom.localeCompare(b.nom, 'fr')).map(f => `<option>${esc(f.nom)}</option>`).join('') + `<option value="${NEW_FOUR}">➕ Nouveau fournisseur…</option>`;
+  if (db.fours.some(f => f.nom === v)) s.value = v;
+}
+function addFour(name) { // même principe que addCat
+  const n = String(name || '').trim();
+  if (!n) return null;
+  const found = db.fours.find(x => x.nom.toLowerCase() === n.toLowerCase());
+  if (found) return found.nom;
+  db.fours.push({ nom: n, tel: '', solde0: 0 }); save(); return n;
 }
 function renderBanner() {
   const name = fileH ? `<b>${esc(fileH.name)}</b>` : '';
@@ -836,6 +929,14 @@ document.addEventListener('change', e => {
     const c = addCat(prompt('Nom de la nouvelle catégorie :'));
     fillCats(); e.target.value = c || e.target.options[0].value;
   }
+  if (e.target.name === 'four' && e.target.value === NEW_FOUR) {
+    const n = addFour(prompt('Nom du fournisseur :'));
+    fillFours(); e.target.value = n || '';
+    if (n) { state.four = n; fournisseurs(); }
+  }
+  if (e.target.form?.id === 'fOp' && e.target.name === 'type') { const p = e.target.value === 'Paiement'; e.target.form.cat.hidden = p; e.target.form.mode.hidden = !p; }
+  const k = e.target.dataset?.fset, fo = k && db.fours.find(x => x.nom === state.four);
+  if (fo) { fo[k] = k === 'tel' ? e.target.value.trim() : num(e.target.value); save(); render(); }
 });
 $('#fCat').onsubmit = e => { e.preventDefault(); addCat(e.target.c.value); e.target.reset(); render(); };
 $('#fMvt').onsubmit = e => {
@@ -844,6 +945,17 @@ $('#fMvt').onsubmit = e => {
   if (!f.date.value || !(m > 0)) return alert('Indiquez une date et un montant supérieur à 0.');
   db.mvts.push({ id: uid(), date: f.date.value, type: f.type.value, montant: m, motif: f.motif.value.trim() });
   save(); f.motif.value = ''; f.montant.value = ''; render();
+};
+$('#fOp').onsubmit = e => {
+  e.preventDefault();
+  const f = e.target.elements, m = num(f.montant.value), type = f.type.value, four = f.four.value;
+  if (!db.fours.some(x => x.nom === four)) return alert('Choisissez un fournisseur.');
+  if (!f.date.value || !(m > 0)) return alert('Indiquez une date et un montant supérieur à 0.');
+  const op = { id: uid(), date: f.date.value, four, ref: f.ref.value.trim() };
+  if (type === 'Paiement') db.paiements.push({ ...op, montant: m, mode: f.mode.value });
+  else if (f.cat.value === NEW_CAT) return alert('Choisissez une catégorie.');
+  else db.charges.push({ ...op, cat: f.cat.value, lib: type, montant: type === 'Avoir' ? -m : m, source: 'Fournisseur' }); // avoir = charge négative
+  state.four = four; save(); f.ref.value = ''; f.montant.value = ''; render();
 };
 $('#dDate').onchange = e => setDate(e.target.value);
 $('#dPrev').onclick = () => setDate(addDays(state.date, -1));
@@ -874,6 +986,12 @@ document.addEventListener('click', e => {
   if (dc) { db.cats = db.cats.filter(c => c !== dc.dataset.delcat); save(); return render(); }
   const dm = e.target.closest('[data-delmv]'), mv = dm && db.mvts.find(x => x.id === dm.dataset.delmv);
   if (mv) { if (confirm(`Supprimer cette ${mv.type.toLowerCase()} de ${fmt(mv.montant)} DH${mv.motif ? ' (' + mv.motif + ')' : ''} ?`)) { db.mvts = db.mvts.filter(x => x !== mv); save(); render(); } return; }
+  const dp = e.target.closest('[data-delpay]'), pay = dp && db.paiements.find(x => x.id === dp.dataset.delpay);
+  if (pay) { if (confirm(`Supprimer le paiement de ${fmt(pay.montant)} DH à ${pay.four} du ${fd(pay.date)} ?`)) { db.paiements = db.paiements.filter(x => x !== pay); save(); render(); } return; }
+  const df = e.target.closest('[data-delfour]');
+  if (df) { if (confirm(`Supprimer le fournisseur « ${df.dataset.delfour} » ?`)) { db.fours = db.fours.filter(x => x.nom !== df.dataset.delfour); state.four = null; save(); render(); } return; }
+  const fr = e.target.closest('[data-four]');
+  if (fr) { state.four = fr.dataset.four; $('#fOp').elements.four.value = state.four; fournisseurs(); return $('#fDet').scrollIntoView({ behavior: 'smooth' }); }
   const del = e.target.closest('[data-del]'), day = e.target.closest('[data-day]'), mo = e.target.closest('[data-month]');
   if (del) {
     const c = db.charges.find(x => x.id === del.dataset.del);
@@ -888,7 +1006,7 @@ let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() 
 if (location.search.includes('test')) {
   const FIX = { jours: { '2026-10-01': { esp: 1000, cb: 500, glovoEsp: 999, glovoLigne: 200, creditClient: 100, creditPaye: 50, versement: 800 } },
     charges: [{ date: '2026-10-01', montant: 150, source: 'Caisse' }, { date: '2026-10-01', montant: 300, source: 'Banque' }], cats: [], params: { soldeInitial: 100 },
-    mvts: [{ date: '2026-10-01', type: 'Sortie', montant: 200 }, { date: '2026-10-01', type: 'Entrée', montant: 50 }, { date: '2026-10-02', type: 'Sortie', montant: 100 }] };
+    mvts: [{ date: '2026-10-01', type: 'Sortie', montant: 200 }, { date: '2026-10-01', type: 'Entrée', montant: 50 }, { date: '2026-10-02', type: 'Sortie', montant: 100 }], fours: [], paiements: [] };
   const [r, r2] = ledger(FIX);
   const checks = { 'CA': r.ca === 1950, 'Reçu': r.recu === 1050, 'Reste': r.reste === 200, 'Sortie seule': r2.reste === 100 && r2.ca === 0, 'Dépense caisse': r.dep === 150, 'Charges': r.charges === 450, 'Crédit': r.credit === 50 };
   // le tableau de bord et le rapport lisent `db` : on l'échange le temps du test
@@ -899,6 +1017,14 @@ if (location.search.includes('test')) {
   checks['CA cumulé'] = st.cumA.at(-1) === st.t.ca;
   checks['Résultat'] = st.res === 1500 && Math.round(st.marge) === 77;
   db = real;
+  // fournisseur : départ 500 + facture 1200 − avoir 100 − paiement espèces 300 − paiement banque 1000 = 300 dus
+  const FX = { ...DEF(), fours: [{ nom: 'F1', solde0: 500 }],
+    charges: [{ date: '2026-10-02', montant: 1200, source: 'Fournisseur', four: 'F1' }, { date: '2026-10-02', montant: -100, source: 'Fournisseur', four: 'F1' }],
+    paiements: [{ date: '2026-10-03', four: 'F1', montant: 300, mode: 'Caisse' }, { date: '2026-10-03', four: 'F1', montant: 1000, mode: 'Banque' }] };
+  const [fa, fp] = ledger(FX), cf = compte('F1', FX);
+  checks['Solde fournisseur'] = cf.solde === 300 && cf.fact === 1200 && cf.regl === 1400;
+  checks['Facture = charge, hors caisse'] = fa.charges === 1100 && fa.dep === 0;
+  checks['Paiement espèces = dépense caisse, pas une charge'] = fp.dep === 300 && fp.payF === 300 && fp.charges === 0;
   const bad = Object.keys(checks).filter(k => !checks[k]);
   alert(bad.length ? 'Auto-test ÉCHEC : ' + bad.join(', ') : 'Auto-test OK ✓');
 }
