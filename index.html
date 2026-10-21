@@ -311,7 +311,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
 const KEY = 'suiviVentes.v1', RESP = 'Noureddine';
 // [clé, en-tête Excel, groupe, aide]
 const F = [
-  ['esp', 'Espèce', 'enc', 'Argent compté en caisse'],
+  ['esp', 'Espèce', 'enc', 'Argent compté en caisse (dirhams)'],
+  ['eur', 'Espèce Euro (€)', 'enc', 'Euros reçus, en € — comptés dans le CA au taux des paramètres'],
   ['cb', 'Carte Crédit', 'enc', 'Total TPE'],
   ['vir', 'Vir/Chéq', 'enc', 'Virements et chèques'],
   ['glovoEsp', 'Glovo/Espèce', 'enc', 'Pour info — non inclus dans le CA'],
@@ -323,13 +324,14 @@ const F = [
   ['perte', 'Perte', 'perte', ''],
   ['annul', 'Annulation', 'perte', ''],
   ['versement', 'Versement', 'caisse', 'Versé à la banque (Vrs Esp)'],
+  ['versEur', 'Versement Euro (€)', 'caisse', 'Euros déposés à la banque ou changés, en €'],
 ];
 const GROUPS = [['enc', 'Encaissements'], ['cred', 'Crédit clients'], ['perte', 'Remises & pertes (pour info)'], ['caisse', 'Caisse']];
-const NUM = [...F.map(f => f[0]), 'dep', 'charges', 'ca', 'caTTC', 'recu', 'entree', 'sortie', 'payF', 'tvaCol', 'tvaRec', 'tvaPayee'];
+const NUM = [...F.map(f => f[0]), 'dep', 'charges', 'ca', 'caTTC', 'recu', 'entree', 'sortie', 'payF', 'tvaCol', 'tvaRec', 'tvaPayee', 'eurDh', 'versEurDh'];
 // Colonnes du rapport, dans l'ordre de la feuille Excel d'origine
-const RCOLS = [['date', 'Date'], ['ca', 'CA HT'], ['caTTC', 'CA TTC'], ['esp', 'Espèce'], ['cb', 'Carte Crédit'], ['vir', 'Vir/Chéq'], ['glovoEsp', 'Glovo/Espèce'], ['glovoLigne', 'Glovo/En ligne'],
+const RCOLS = [['date', 'Date'], ['ca', 'CA HT'], ['caTTC', 'CA TTC'], ['esp', 'Espèce'], ['eur', 'Euro (€)'], ['cb', 'Carte Crédit'], ['vir', 'Vir/Chéq'], ['glovoEsp', 'Glovo/Espèce'], ['glovoLigne', 'Glovo/En ligne'],
   ['creditPaye', 'Crédit Payé'], ['creditClient', 'Crédit Client'], ['remise', 'Remise'], ['offert', 'Offert'], ['perte', 'Perte'], ['annul', 'Annulation'],
-  ['dep', 'Dépense'], ['recu', 'Reçu par ' + RESP], ['versement', 'Versement'], ['entree', 'Entrée caisse'], ['sortie', 'Sortie caisse'], ['reste', 'Reste'], ['obs', 'Observation']];
+  ['dep', 'Dépense'], ['recu', 'Reçu par ' + RESP], ['versement', 'Versement'], ['versEur', 'Versement €'], ['entree', 'Entrée caisse'], ['sortie', 'Sortie caisse'], ['reste', 'Reste'], ['obs', 'Observation']];
 // Catégories de charges = lignes du bilan « TABLE M », par groupe, dans l'ordre de la feuille du client.
 // Tous les groupes sont des dépenses fixes, sauf VAR.
 const CATS = {
@@ -357,7 +359,7 @@ function migrateCats(cats, charges) {
   return m;
 }
 const PARAMS = [['soldeInitial', 'Reste de départ (DH)', 'Argent déjà en main avant le 1er jour saisi'], ['fondCaisse', 'Fond de caisse (DH)', ''],
-  ['euro', 'Dont en Euro (€)', 'Partie du Reste gardée en euros'], ['taux', 'Taux Euro → DH', 'Dans l\'Excel : 10'],
+  ['euro', 'Euros au départ (€)', 'Euros compris dans le Reste de départ ; ensuite ils viennent de la Saisie du jour'], ['taux', 'Taux Euro → DH', 'Dans l\'Excel : 10'],
   ['tvaVentes', 'TVA sur les ventes (%)', 'Les ventes sont saisies TTC ; le CA est affiché HT = TTC ÷ (1 + taux)']];
 
 // ---------- utilitaires ----------
@@ -421,6 +423,7 @@ function demoData() {
   const K = [.75, .9, .95, 1, 1.15, 1.45, 1.35];                       // dimanche → samedi
   const MF = [.85, .9, .78, 1, 1.05, 1.15, 1.3, 1.38, 1.05, 1, .92, 1.1]; // saison : janvier → décembre
   const t = today(), months = [t.slice(0, 7)], owed = {};              // owed : facturé depuis le dernier paiement
+  let eurHeld = d.params.euro, cash = d.params.soldeInitial;           // euros en caisse ; argent en caisse (DH, euros compris)
   while (months.length < 6 || months[0] > t.slice(0, 4) + '-01') months.unshift(prevYm(months[0]));
   const C = (date, cat, montant, source = 'Caisse', x = {}) => date <= t && d.charges.push({ id: uid(), date, cat, lib: '', montant: Math.round(montant), source, ...x });
   // factures saisies HT avec leur taux de TVA ; le fournisseur attend le TTC
@@ -457,7 +460,12 @@ function demoData() {
       d.jours[iso] = { esp: r(.52), cb: r(.3), vir: rnd() < .2 ? r(.08) : 0, glovoEsp: r(.04), glovoLigne: r(.11),
         creditClient: rnd() < .3 ? r(.07) : 0, creditPaye: rnd() < .25 ? r(.05) : 0, remise: rnd() < .4 ? r(.012) : 0,
         offert: rnd() < .3 ? r(.008) : 0, perte: rnd() < .15 ? r(.01) : 0, annul: rnd() < .1 ? r(.006) : 0,
-        versement: wd === 6 ? r(2.45) : 0, obs: wd === 6 ? 'Versement hebdomadaire' : '' };
+        versement: 0, obs: wd === 6 ? 'Versement hebdomadaire' : '' };
+      const j = d.jours[iso];                                           // touristes : une partie payée en euros, changée une fois par mois
+      if (rnd() < (mf > 1.1 ? .6 : .3)) eurHeld += j.eur = Math.round(b * .1 / 10);
+      if (wd === 6 && day <= 7 && eurHeld > 200) eurHeld -= j.versEur = Math.floor(eurHeld * .8 / 50) * 50;
+      cash += j.esp + j.creditPaye + ((j.eur || 0) - (j.versEur || 0)) * d.params.taux;
+      if (wd === 6) cash -= j.versement = Math.max(0, Math.round((cash - 9000 - rnd() * 4000) / 100) * 100); // on garde ~10 000 DH en caisse
       // achats du jour payés en caisse : [catégorie, part du CA, probabilité]
       for (const [c, x, p] of [['Légumes & Fruits', .09, .9], ['Boulangerie', .025, .95], ['Les salades', .02, .6], ['Œufs', .015, .5], ['Glaçons', .01, mf > 1.1 ? .8 : .3],
         ['Glace', .02, mf > 1.1 ? .5 : .1], ['Café', .03, .3], ['Olives', .01, .2], ['Produits alimentaires', .06, .5], ['Gasoil', .04, .3], ['Produits d\'hygiène', .03, .15],
@@ -475,8 +483,8 @@ function demoData() {
       if (day === 15) pay(iso, 'Grossiste Boissons', owed['Grossiste Boissons'] * .85, 'Banque', 'Virement');
       if (day === 20) pay(iso, 'Fromagerie du Centre', owed['Fromagerie du Centre'] * .75, 'Banque', 'Chèque');
       // caisse : retraits du patron, parfois un apport
-      if (rnd() < .1) d.mvts.push({ id: uid(), date: iso, type: 'Sortie', montant: 500 * Math.ceil(rnd() * 5), motif: pick(['Retrait personnel', 'Retrait personnel', 'Courses maison', 'Avance salaire serveur', 'Essence voiture']) });
-      if (rnd() < .02) d.mvts.push({ id: uid(), date: iso, type: 'Entrée', montant: 1000, motif: 'Apport pour la monnaie' });
+      if (rnd() < .1) { const m = 500 * Math.ceil(rnd() * 5); cash -= m; d.mvts.push({ id: uid(), date: iso, type: 'Sortie', montant: m, motif: pick(['Retrait personnel', 'Retrait personnel', 'Courses maison', 'Avance salaire serveur', 'Essence voiture']) }); }
+      if (rnd() < .02) { cash += 1000; d.mvts.push({ id: uid(), date: iso, type: 'Entrée', montant: 1000, motif: 'Apport pour la monnaie' }); }
     }
     const cb = sumBy(Object.keys(d.jours).filter(k => k.startsWith(ym)), k => d.jours[k].cb);
     if (cb) C(ym + '-28', 'Commission CMI', cb * .015, 'Banque');      // commission TPE du mois
@@ -563,8 +571,9 @@ function ledger(d = db) {
   for (const m of d.mvts) (mvByDate[m.date] ??= []).push(m);
   for (const p of d.paiements) if (p.mode === 'Caisse') (payByDate[p.date] ??= []).push(p);
   const dates = [...new Set([d.jours, byDate, mvByDate, payByDate].flatMap(Object.keys))].sort();
-  let reste = +d.params.soldeInitial || 0, credit = 0;
-  const kHT = 1 + (+d.params.tvaVentes || 0) / 100;                     // les montants saisis sont TTC
+  let reste = +d.params.soldeInitial || 0, credit = 0, eur = +d.params.euro || 0;
+  const kHT = 1 + (+d.params.tvaVentes || 0) / 100, taux = +d.params.taux || 0; // les montants saisis sont TTC
+  // ponytail: euros convertis au taux actuel des paramètres, même pour les jours passés ; un taux par jour si le change compte
   return dates.map(date => {
     const j = d.jours[date] || {}, ch = byDate[date] || [], r = { date, obs: j.obs || '' };
     for (const [k] of F) r[k] = +j[k] || 0;
@@ -574,23 +583,25 @@ function ledger(d = db) {
     r.charges = sumBy(ch.filter(isCharge), c => +c.montant || 0);          // factures fournisseurs : HT
     r.tvaPayee = sumBy(ch.filter(c => !isCharge(c)), c => +c.montant || 0); // TVA versée à la DGI : pas une charge
     r.tvaRec = sumBy(ch, c => (+c.montant || 0) * (+c.tva || 0) / 100);   // TVA des factures, récupérable
-    r.caTTC = r.esp + r.cb + r.vir + r.glovoLigne + r.creditClient + r.dep; // colonne B
+    r.eurDh = r.eur * taux; r.versEurDh = r.versEur * taux;                // euros reçus / sortis, en DH
+    r.caTTC = r.esp + r.eurDh + r.cb + r.vir + r.glovoLigne + r.creditClient + r.dep; // colonne B
     r.ca = r.caTTC / kHT; r.tvaCol = r.caTTC - r.ca;                       // le CA est suivi HT
-    r.recu = r.esp + r.creditPaye;                                        // colonne P
+    r.recu = r.esp + r.eurDh + r.creditPaye;                              // colonne P
+    eur += r.eur - r.versEur; r.eurCaisse = eur;                          // euros en caisse, en €
     const mv = mvByDate[date] || [];                                      // entrées / sorties : hors CA
     r.entree = sumBy(mv.filter(m => m.type === 'Entrée'), m => +m.montant || 0);
     r.sortie = sumBy(mv.filter(m => m.type !== 'Entrée'), m => +m.montant || 0);
-    reste += r.recu - r.versement + r.entree - r.sortie; r.reste = reste; // colonne R
+    reste += r.recu - r.versement - r.versEurDh + r.entree - r.sortie; r.reste = reste; // colonne R
     credit += r.creditClient - r.creditPaye; r.credit = credit;
     return r;
   });
 }
 const totals = rows => Object.fromEntries(NUM.map(k => [k, sumBy(rows, r => r[k])]));
 const monthRows = (L, ym) => L.filter(r => r.date.startsWith(ym));
-function at(L, date) { // Reste et crédit en cours à la fin de `date`
-  let reste = +db.params.soldeInitial || 0, credit = 0;
-  for (const r of L) { if (r.date > date) break; reste = r.reste; credit = r.credit; }
-  return { reste, credit };
+function at(L, date) { // Reste, crédit en cours et euros en caisse à la fin de `date`
+  let reste = +db.params.soldeInitial || 0, credit = 0, eur = +db.params.euro || 0;
+  for (const r of L) { if (r.date > date) break; reste = r.reste; credit = r.credit; eur = r.eurCaisse; }
+  return { reste, credit, eur };
 }
 function monthDays(L, ym) {
   const map = Object.fromEntries(monthRows(L, ym).map(r => [r.date, r])), t = today();
@@ -682,7 +693,7 @@ function stats(ym) {
     pertes: t.remise + t.offert + t.perte + t.annul,
     // projection : rythme des jours écoulés étendu au mois entier (mois en cours uniquement)
     proj: ym === td.slice(0, 7) && elapsed > 0 && elapsed < all.length ? t.ca / elapsed * all.length : null,
-    mix: [['Espèce', t.esp], ['Carte crédit', t.cb], ['Virement / Chèque', t.vir], ['Glovo en ligne', t.glovoLigne], ['Crédit client', t.creditClient], ['Dépenses en caisse', t.dep]],
+    mix: [['Espèce', t.esp], ['Espèce en euros', t.eurDh], ['Carte crédit', t.cb], ['Virement / Chèque', t.vir], ['Glovo en ligne', t.glovoLigne], ['Crédit client', t.creditClient], ['Dépenses en caisse', t.dep]],
     cumA: cum(rows, elapsed), cumP: cum(pRows, daysOf(prev).length),
   };
 }
@@ -718,7 +729,7 @@ const insList = o => o.length
 const state = { page: location.hash.slice(1), ym: today().slice(0, 7), date: today(), year: new Date().getFullYear(), four: null };
 
 function dash() {
-  const st = stats(state.ym), t = st.t, eurDh = db.params.euro * db.params.taux;
+  const st = stats(state.ym), t = st.t, taux = +db.params.taux || 0;
   const period = st.elapsed < st.all.length ? `1–${+st.ref.slice(8)} ` : '';
   $('#tiles').innerHTML =
     kpi('Chiffre d\'affaires HT — ' + mName(st.ym), fmt(t.ca) + ' DH',
@@ -728,7 +739,9 @@ function dash() {
     kpi('CA moyen par jour travaillé', fmt(st.avg), st.act.length + ' jour(s) avec ventes') +
     kpi(st.proj ? 'Projection fin de mois' : 'Remises, offerts, pertes', st.proj ? fmt(st.proj) : fmt(st.pertes),
       st.proj ? `au rythme des ${st.elapsed} premiers jours` : (t.ca ? pct(st.pertes / t.ca * 100) + ' du CA' : '')) +
-    kpi('Reste en caisse', fmt(st.end.reste), `au ${fd(st.ref)}` + (t.sortie ? ` · ${fmt(t.sortie)} sortis ce mois` : '') + (db.params.euro ? ` · dont ${fmt(db.params.euro)} € (${fmt(eurDh)} DH)` : '')) +
+    kpi('Reste en caisse', fmt(st.end.reste), `au ${fd(st.ref)}` + (t.sortie ? ` · ${fmt(t.sortie)} sortis ce mois` : '') + (st.end.eur ? ` · dont ${fmt(st.end.eur)} € (${fmt(st.end.eur * taux)} DH)` : '')) +
+    kpi('Euros encaissés — ' + mName(st.ym), fmt(t.eur) + ' €', `= ${fmt(t.eurDh)} DH au taux de ${taux} · compris dans le CA`) +
+    kpi('Euros en caisse', fmt(st.end.eur) + ' €', `= ${fmt(st.end.eur * taux)} DH · au ${fd(st.ref)}` + (t.versEur ? ` · ${fmt(t.versEur)} € versés ce mois` : '')) +
     kpi('Crédit clients en cours', fmt(st.end.credit), 'à récupérer auprès des clients') +
     (db.fours.length ? kpi('À payer aux fournisseurs', fmt(sumBy(db.fours, f => Math.max(0, compte(f.nom).solde))), 'solde actuel · onglet Fournisseurs') : '');
   $('#dIns').innerHTML = insList(insights(st));
@@ -760,11 +773,12 @@ function live() {
   const st = at(L, state.date), mtd = sumBy(monthRows(L, ym).filter(x => x.date <= state.date), x => x.ca);
   $('#live').innerHTML = `<div class="tl">CA HT du ${dLabel(state.date)}</div><div class="big">${fmt(r.ca)} <small style="font-size:16px">DH</small></div>
     <div class="formula">TTC ${fmt(r.caTTC)} DH ÷ ${String(1 + (+db.params.tvaVentes || 0) / 100).replace('.', ',')} (TVA ${+db.params.tvaVentes || 0} %)<br>
-      TTC = Espèce + Carte + Vir/Chéq + Glovo en ligne + Crédit client + Dépenses caisse</div>
+      TTC = Espèce + Euros × taux + Carte + Vir/Chéq + Glovo en ligne + Crédit client + Dépenses caisse</div>
     ${kv('Dépenses caisse du jour', fmt(r.dep), r.payF ? `dont ${fmt(r.payF)} payés aux fournisseurs` : 'ajoutées en bas de page')}
-    ${kv('Reçu par ' + RESP, fmt(r.recu), 'Espèce + Crédit payé')}
+    ${kv('Reçu par ' + RESP, fmt(r.recu), 'Espèce + Euros (en DH) + Crédit payé')}
     ${r.entree || r.sortie ? kv('Entrées − sorties de caisse', signed(r.entree - r.sortie), 'onglet Caisse') : ''}
-    ${kv('Reste en caisse', fmt(st.reste), 'Reste veille + Reçu − Versement + Entrées − Sorties')}
+    ${kv('Reste en caisse', fmt(st.reste), 'Reste veille + Reçu − Versements + Entrées − Sorties')}
+    ${kv('Euros en caisse', fmt(st.eur) + ' €', `= ${fmt(st.eur * (+db.params.taux || 0))} DH · compris dans le Reste`)}
     ${kv('Crédit clients en cours', fmt(st.credit))}
     ${kv('CA HT du mois à ce jour', fmt(mtd), mName(ym))}
     ${kv('Toutes charges du jour', fmt(r.charges), 'caisse + banque + factures HT')}`;
@@ -797,8 +811,9 @@ function caisse() {
   const L = ledger(), t = totals(monthRows(L, ym)), last = daysOf(ym).at(-1);
   const list = db.mvts.filter(m => m.date.startsWith(ym)).sort((a, b) => b.date.localeCompare(a.date));
   $('#cTot').innerHTML = `<div class="tl">${ym === today().slice(0, 7) ? 'Maintenant' : 'Au ' + fd(last)}</div><div class="big">${fmt(at(L, last).reste)} <small style="font-size:16px">DH</small></div>` +
-    kv('Reste au début du mois', fmt(at(L, addDays(ym + '-01', -1)).reste)) + kv('+ Reçu par ' + RESP, fmt(t.recu), 'Espèce + Crédit payé') +
-    kv('− Versements à la banque', fmt(t.versement)) + kv('+ Entrées', fmt(t.entree)) + kv('− Sorties', fmt(t.sortie));
+    kv('Reste au début du mois', fmt(at(L, addDays(ym + '-01', -1)).reste)) + kv('+ Reçu par ' + RESP, fmt(t.recu), 'Espèce + Euros (en DH) + Crédit payé') +
+    kv('− Versements à la banque', fmt(t.versement + t.versEurDh), t.versEur ? `dont ${fmt(t.versEur)} € (${fmt(t.versEurDh)} DH)` : '') + kv('+ Entrées', fmt(t.entree)) + kv('− Sorties', fmt(t.sortie)) +
+    kv('Dont euros en caisse', fmt(at(L, last).eur) + ' €', `= ${fmt(at(L, last).eur * (+db.params.taux || 0))} DH`);
   $('#cList').innerHTML = !list.length ? '<p class="empty">Aucune entrée ni sortie pour ' + mName(ym) + '.</p>'
     : `<table><thead><tr><th>Date</th><th class="t">Type</th><th class="t">Motif</th><th>Montant</th><th></th></tr></thead><tbody>` +
       list.map(m => `<tr><td>${fd(m.date)}</td><td class="t">${esc(m.type)}</td><td class="t">${esc(m.motif)}</td><td>${signed(m.type === 'Entrée' ? m.montant : -m.montant)}</td><td><button class="x" data-delmv="${esc(m.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') + '</tbody></table>';
@@ -847,7 +862,7 @@ function fournisseurs() {
 
 function rapport() {
   const st = stats(state.ym), L = st.L, ym = st.ym, t = st.t, p = db.params, days = monthDays(L, ym);
-  const endReste = days.filter(d => d.reste != null).at(-1)?.reste ?? at(L, ym + '-01').reste, eurDh = p.euro * p.taux;
+  const endReste = days.filter(d => d.reste != null).at(-1)?.reste ?? at(L, ym + '-01').reste, endEur = st.end.eur, eurDh = endEur * p.taux;
   const cell = (d, k) => k === 'date' ? fd(d.date) : k === 'reste' ? (d.reste == null ? '' : fmt(d.reste)) : !d.r ? '' : k === 'obs' ? esc(d.r.obs) : d.r[k] ? fmt(d.r[k]) : '';
   const period = st.elapsed < st.all.length ? `1–${+st.ref.slice(8)} ` : '';
   const ch = db.charges.filter(c => c.date.startsWith(ym)).sort((a, b) => a.date.localeCompare(b.date) || a.cat.localeCompare(b.cat));
@@ -871,7 +886,7 @@ function rapport() {
   <div class="grid2">
     <div class="card"><h2>CA HT moyen par jour de la semaine (DH)</h2><div id="rDow" class="chart"></div></div>
     <div class="card"><h2>Caisse en fin de période</h2>
-      ${kv('Euro', `${fmt(p.euro)} € × ${p.taux} = ${fmt(eurDh)}`)}${kv('Dirhams', fmt(endReste - eurDh))}${kv('<b>Total général</b>', fmt(endReste))}${kv('Fonds de caisse', fmt(p.fondCaisse))}
+      ${kv('Euro', `${fmt(endEur)} € × ${p.taux} = ${fmt(eurDh)}`, `${fmt(t.eur)} € encaissés, ${fmt(t.versEur)} € versés sur le mois`)}${kv('Dirhams', fmt(endReste - eurDh))}${kv('<b>Total général</b>', fmt(endReste))}${kv('Fonds de caisse', fmt(p.fondCaisse))}
       ${kv('Versements à la banque', fmt(t.versement), 'sur le mois')}${kv('Entrées / sorties de caisse', `+${fmt(t.entree)} / −${fmt(t.sortie)}`, 'sur le mois, hors CA')}${t.payF ? kv('Fournisseurs payés en espèces', fmt(t.payF), 'compris dans la colonne Dépense') : ''}${kv('Crédit clients en cours', fmt(st.end.credit))}
     </div>
   </div>
@@ -897,7 +912,7 @@ function yearData() {
 }
 // ---------- bilan « TABLE M » (présentation de la feuille du client) ----------
 // TOTAL REVENUS = C.A HT ; RESTE = revenus − dépenses fixes ; RESTE AU TOTAL = RESTE − dépenses variables (= résultat)
-const REV = [['ca', 'C.A HT'], ['caTTC', 'C.A TTC'], ['esp', 'CV Espèce'], ['cb', 'CV Carte Crédit'], ['vir', 'CV Vir/Chèque'], ['creditClient', 'Crédit Client'], ['creditPaye', 'Crédit payé'], ['glovoLigne', 'Glovo/En ligne'], ['glovoEsp', 'Glovo/Espèce']];
+const REV = [['ca', 'C.A HT'], ['caTTC', 'C.A TTC'], ['esp', 'CV Espèce'], ['eurDh', 'CV Espèce Euro (en DH)'], ['cb', 'CV Carte Crédit'], ['vir', 'CV Vir/Chèque'], ['creditClient', 'Crédit Client'], ['creditPaye', 'Crédit payé'], ['glovoLigne', 'Glovo/En ligne'], ['glovoEsp', 'Glovo/Espèce']];
 function bilanRows(keys) { // une colonne par clé : 'AAAA-MM' (un mois) ou 'AAAA' (l'année)
   const L = ledger(), T = keys.map(k => totals(monthRows(L, k))), C = keys.map(k => Object.fromEntries(chargesByCat(k)));
   const cats = withUsed(db.cats, db.charges), rows = [], line = (label, vals, cls) => rows.push({ k: 'l', label, vals, cls });
@@ -966,11 +981,11 @@ function book(sheets) {
 const download = (name, sheets) => XLSX.writeFile(book(sheets), name);
 function exportMonth() {
   const L = ledger(), ym = state.ym, days = monthDays(L, ym), t = totals(monthRows(L, ym)), p = db.params;
-  const endReste = days.filter(d => d.reste != null).at(-1)?.reste ?? 0, eurDh = p.euro * p.taux;
+  const endReste = days.filter(d => d.reste != null).at(-1)?.reste ?? 0, endEur = at(L, daysOf(ym).at(-1)).eur, eurDh = endEur * p.taux;
   const val = (d, k) => k === 'date' ? fd(d.date) : k === 'reste' ? d.reste ?? '' : !d.r ? '' : k === 'obs' ? d.r.obs : d.r[k] || '';
   const aoa = [['Suivi des Ventes TM — ' + mName(ym)], [], RCOLS.map(c => c[1]), ...days.map(d => RCOLS.map(([k]) => val(d, k))),
     RCOLS.map(([k]) => k === 'date' ? 'Total dhs' : k === 'reste' ? endReste : k === 'obs' ? '' : t[k]), [],
-    ['Euro', p.euro, '× ' + p.taux, eurDh], ['DHS', endReste - eurDh], ['Total Général', endReste], ['Fonds Caisse', p.fondCaisse], [],
+    ['Euro', endEur, '× ' + p.taux, eurDh], ['DHS', endReste - eurDh], ['Total Général', endReste], ['Fonds Caisse', p.fondCaisse], [],
     ['CA HT', t.ca], ['Total charges (HT, hors TVA)', t.charges], ['Résultat (CA HT − charges)', t.ca - t.charges]];
   const ch = db.charges.filter(c => c.date.startsWith(ym)).sort((a, b) => a.date.localeCompare(b.date));
   download(`rapport-${ym}.xlsx`, [[mName(ym), aoa, RCOLS.map(c => c[0] === 'obs' ? 30 : 12)], ['Bilan', bilanAoa([ym], [mName(ym)]), [44, 16]],
@@ -992,7 +1007,7 @@ function toWorkbook() {
     ['Caisse', [['Date', 'Type', 'Montant', 'Motif'], ...[...db.mvts].sort((a, b) => a.date.localeCompare(b.date)).map(m => [m.date, m.type, m.montant, m.motif])], [12, 10, 12, 30]],
     ['Catégories', [['Catégorie', 'Groupe'], ...db.cats.map(c => [c, grpOf(c)])], [34, 30]],
     ['Paramètres', [['Clé', 'Valeur'], ...Object.entries(db.params), ['savedAt', db.savedAt || 0]], [16, 14]],
-    ['Calculs', [['Date', 'CA HT', 'CA TTC', 'Dépense caisse', 'Reçu', 'Versement', 'Entrée caisse', 'Sortie caisse', 'Reste', 'Crédit en cours'], ...L.map(r => [r.date, r.ca, r.caTTC, r.dep, r.recu, r.versement, r.entree, r.sortie, r.reste, r.credit])], [12, 12, 12, 14, 12, 12, 13, 13, 12, 14]],
+    ['Calculs', [['Date', 'CA HT', 'CA TTC', 'Dépense caisse', 'Reçu', 'Versement', 'Entrée caisse', 'Sortie caisse', 'Reste', 'Crédit en cours', 'Euros en caisse (€)'], ...L.map(r => [r.date, r.ca, r.caTTC, r.dep, r.recu, r.versement, r.entree, r.sortie, r.reste, r.credit, r.eurCaisse])], [12, 12, 12, 14, 12, 12, 13, 13, 12, 14, 16]],
   ]);
 }
 function fromWorkbook(wb) {
@@ -1190,6 +1205,9 @@ if (location.search.includes('test')) {
   checks['CA cumulé'] = st.cumA.at(-1) === st.t.ca;
   checks['Résultat'] = st.res === 1500 && Math.round(st.marge) === 77;
   checks['TVA hors charges'] = r.tvaPayee === 500 && r.charges === 450;
+  // 10 € reçus et 4 € versés au taux de 10 : CA +100 DH, Reste +100 − 40, euros 50 + 10 − 4
+  const E = ledger({ ...FIX, jours: { '2026-10-01': { ...FIX.jours['2026-10-01'], eur: 10, versEur: 4 } }, params: { ...FIX.params, taux: 10, euro: 50 } })[0];
+  checks['Euros'] = E.caTTC === 2050 && E.reste === 260 && E.eurCaisse === 56;
   const H = ledger({ ...FIX, params: { ...FIX.params, tvaVentes: 10 } })[0];   // ventes saisies TTC, CA suivi HT
   checks['CA HT'] = H.caTTC === 1950 && Math.abs(H.ca * 1.1 - 1950) < 1e-9 && Math.abs(H.ca + H.tvaCol - 1950) < 1e-9;
   const B = bilanRows(['2026-10']), bv = l => B.find(x => x.label === l).vals[0];
