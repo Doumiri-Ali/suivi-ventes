@@ -377,34 +377,80 @@ function load() {
   }
 }
 // ---------- mode démonstration (?demo) ----------
-// Données fictives, reproductibles, calées sur la date du jour. Rien n'est enregistré :
-// un testeur voit immédiatement le tableau de bord et le rapport remplis.
+// Données fictives, reproductibles, calées sur la date du jour : depuis janvier (au moins 6 mois), toutes les lignes
+// de la TABLE M, 6 fournisseurs, retraits de caisse. Rien n'est enregistré : un testeur voit tout de suite l'app remplie.
 const DEMO = new URLSearchParams(location.search).has('demo');
+// ponytail: dépenses ponctuelles par jour de l'année (MM-JJ), donc valables quelle que soit l'année
+const DEMO_ONE = {
+  '01-12': [['Débit de boisson', 2500, 'Banque']], '01-20': [['JTR innovation', 3000, 'Banque']], '02-10': [['Matériel informatique', 4500, 'Banque']],
+  '02-15': [['Autre impôt ou taxe', 600, 'Banque']], '03-09': [['Taxe Rokhass', 3000, 'Banque']], '03-12': [['Dépenses Villa Oussama', 3500, 'Banque']],
+  '03-31': [['Impôt sur le revenu', 5200, 'Banque']], '04-03': [['Grand ménage', 1200, 'Caisse']], '04-14': [['Réparation du matériel', 1250, 'Caisse']],
+  '04-30': [['DGI', 1500, 'Banque']], '05-05': [['Tailleur tenue TM', 2600, 'Banque']], '05-19': [['Hôpital / personnel', 900, 'Caisse']],
+  '06-01': [['Publicité', 1500, 'Banque']], '06-08': [['Frais architecte', 8000, 'Banque']], '06-15': [['Matériel', 3800, 'Banque']], '06-18': [['Petit outillage', 350, 'Caisse']],
+  '07-01': [['Publicité', 1500, 'Banque']], '07-06': [['Frais architecte', 7000, 'Banque']], '07-22': [['Fournitures électriques', 480, 'Caisse']],
+  '08-11': [['Peinture Table M', 6400, 'Banque']], '08-25': [['Dépenses Villa Oussama', 2800, 'Banque']], '09-01': [['Grand ménage', 1200, 'Caisse']],
+  '09-22': [['Réparation du matériel', 2300, 'Banque']], '10-02': [['Hôpital / personnel', 650, 'Caisse']], '11-17': [['IS', 4800, 'Banque']], '12-10': [['Matériel', 2200, 'Banque']],
+};
 function demoData() {
-  const rnd = (x => () => (x = x * 16807 % 2147483647) / 2147483647)(42);
+  const rnd = (x => () => (x = x * 16807 % 2147483647) / 2147483647)(7), pick = a => a[Math.floor(rnd() * a.length)];
   const d = { ...DEF(), params: { soldeInitial: 4200, fondCaisse: 2000, euro: 150, taux: 10 },
-    fours: [{ nom: 'Boucherie Atlas', tel: '', solde0: 3200 }, { nom: 'Grossiste Boissons', tel: '', solde0: 0 }] };
-  const K = [.75, .9, .95, 1, 1.15, 1.45, 1.35];            // dimanche → samedi
-  const t = today(), cur = t.slice(0, 7);
-  for (const ym of [prevYm(cur), cur]) for (const iso of daysOf(ym)) {
-    if (iso > t) break;
-    const wd = new Date(iso + 'T00:00').getDay(), b = 3600 * K[wd] * (.82 + rnd() * .36) * (ym === cur ? 1.09 : 1), r = x => Math.round(b * x);
-    // charges fixes : dues même si le commerce est fermé ce jour-là
-    if (+iso.slice(8) === 5) for (const [c, v] of [['Les Salaires', 11800], ['Loyer', 6500], ['Électricité', 1450], ['Cotisation CNSS', 980]])
-      d.charges.push({ id: uid(), date: iso, cat: c, lib: '', montant: v, source: 'Banque' });
-    if (wd === 1 && rnd() < .5) continue;                   // fermé certains lundis
-    if (rnd() < .12) d.mvts.push({ id: uid(), date: iso, type: 'Sortie', montant: 500 * Math.ceil(rnd() * 4), motif: 'Retrait personnel' });
-    const fac = (four, cat, x, p) => d.charges.push({ id: uid(), date: iso, cat, lib: 'Facture', montant: r(x), source: 'Fournisseur', four, ref: p + iso.slice(5).replace('-', '') });
-    if (wd === 2) fac('Boucherie Atlas', 'Boucherie', .5, 'BA-');
-    if (wd === 4) fac('Grossiste Boissons', 'Limonades', .35, 'GB-');
-    if (wd === 5) d.paiements.push({ id: uid(), date: iso, four: 'Boucherie Atlas', montant: r(.45), mode: 'Banque', ref: 'Chèque' });
-    if (+iso.slice(8) === 15) d.paiements.push({ id: uid(), date: iso, four: 'Grossiste Boissons', montant: 3000, mode: 'Banque', ref: 'Virement' });
-    d.jours[iso] = { esp: r(.52), cb: r(.3), vir: rnd() < .2 ? r(.08) : 0, glovoEsp: r(.04), glovoLigne: r(.11),
-      creditClient: rnd() < .3 ? r(.07) : 0, creditPaye: rnd() < .25 ? r(.05) : 0, remise: rnd() < .4 ? r(.012) : 0,
-      offert: rnd() < .3 ? r(.008) : 0, perte: rnd() < .15 ? r(.01) : 0, annul: rnd() < .1 ? r(.006) : 0,
-      versement: wd === 6 ? r(2.1) : 0, obs: wd === 6 ? 'Versement hebdomadaire' : '' };
-    for (const [c, x] of [['Légumes & Fruits', .2], ['Produits alimentaires', .14], ['Gasoil', .04], ['Produits d\'hygiène', .03], ['Divers', .03]])
-      if (rnd() < (x > .1 ? .8 : .2)) d.charges.push({ id: uid(), date: iso, cat: c, lib: '', montant: r(x * (.7 + rnd() * .6)), source: 'Caisse' });
+    fours: ['Boucherie Atlas', 'Volailles Zaër', 'Poissonnerie du Port', 'Grossiste Boissons', 'Fromagerie du Centre', 'Emballages Pro']
+      .map(nom => ({ nom, tel: '', solde0: { 'Boucherie Atlas': 3200, 'Grossiste Boissons': 1500 }[nom] || 0 })) };
+  const K = [.75, .9, .95, 1, 1.15, 1.45, 1.35];                       // dimanche → samedi
+  const MF = [.85, .9, .78, 1, 1.05, 1.15, 1.3, 1.38, 1.05, 1, .92, 1.1]; // saison : janvier → décembre
+  const t = today(), months = [t.slice(0, 7)], owed = {};              // owed : facturé depuis le dernier paiement
+  while (months.length < 6 || months[0] > t.slice(0, 4) + '-01') months.unshift(prevYm(months[0]));
+  const C = (date, cat, montant, source = 'Caisse', x = {}) => date <= t && d.charges.push({ id: uid(), date, cat, lib: '', montant: Math.round(montant), source, ...x });
+  const fac = (date, four, cat, m, ref, lib = 'Facture') => { owed[four] = (owed[four] || 0) + m; C(date, cat, m, 'Fournisseur', { four, ref, lib }); };
+  const pay = (date, four, m, mode, ref) => { m = Math.round(m); if (m > 0) { owed[four] = (owed[four] || 0) - m; d.paiements.push({ id: uid(), date, four, montant: m, mode, ref }); } };
+  for (const ym of months) {
+    const mo = +ym.slice(5), mf = MF[mo - 1];
+    for (const iso of daysOf(ym)) {
+      if (iso > t) break;
+      const day = +iso.slice(8), wd = new Date(iso + 'T00:00').getDay(), b = 3600 * K[wd] * (.82 + rnd() * .36) * mf, r = x => Math.round(b * x);
+      const ref = p => p + iso.slice(5).replace('-', '');
+      // charges fixes et ponctuelles : dues même si le commerce est fermé ce jour-là
+      if (day === 5) {
+        for (const [c, v] of [['Les Salaires', mo >= 7 ? 13200 : 11800], ['Loyer', 6500], ['Cotisation CNSS', mo >= 7 ? 1100 : 980], ['Honoraires comptable', 1500],
+          ['Location machine à café', 900], ['Fibre optique, internet & téléphone', 450], ['Frais bancaires & Commission', 180]]) C(iso, c, v, 'Banque');
+        C(iso, 'Électricité', 1000 + 900 * (mf - .78) + rnd() * 200, 'Banque'); C(iso, 'Eau', 320 + rnd() * 140, 'Banque'); C(iso, 'Gaz', 520 + rnd() * 160);
+        if (mo % 3 === 1) { C(iso, 'TVA', 3800 + rnd() * 1400, 'Banque'); C(iso, 'Traitement hygiène', 600, 'Banque'); }
+        if (mo === 1 || mo === 7) C(iso, 'Impôt sur Loyer', 2400, 'Banque');
+        if (mo % 2) C(iso, 'ADS', 800, 'Banque');
+        C(iso, 'Pourboire', 400); C(iso, 'Fournitures de bureau', 120 + rnd() * 150);
+      }
+      for (const [c, v, s] of DEMO_ONE[iso.slice(5)] || []) C(iso, c, v, s);
+      if (iso.slice(5) === '06-18') fac(iso, 'Grossiste Boissons', 'Limonades', -420, 'Bouteilles consignées', 'Avoir');
+      if (iso.slice(5) === '08-14') fac(iso, 'Boucherie Atlas', 'Boucherie', -650, 'Retour viande', 'Avoir');
+      if (iso.slice(5) === '09-03') pay(iso, 'Emballages Pro', 3000, 'Banque', 'Avance');              // avance : ce fournisseur finit par vous devoir
+      if (iso.slice(5) === '09-20') fac(iso, 'Emballages Pro', 'Emballage (sacs, boîtes, couverts)', 1800, 'EP-0920');
+      if (wd === 1 && rnd() < .5) continue;                             // fermé certains lundis
+      d.jours[iso] = { esp: r(.52), cb: r(.3), vir: rnd() < .2 ? r(.08) : 0, glovoEsp: r(.04), glovoLigne: r(.11),
+        creditClient: rnd() < .3 ? r(.07) : 0, creditPaye: rnd() < .25 ? r(.05) : 0, remise: rnd() < .4 ? r(.012) : 0,
+        offert: rnd() < .3 ? r(.008) : 0, perte: rnd() < .15 ? r(.01) : 0, annul: rnd() < .1 ? r(.006) : 0,
+        versement: wd === 6 ? r(2.6) : 0, obs: wd === 6 ? 'Versement hebdomadaire' : '' };
+      // achats du jour payés en caisse : [catégorie, part du CA, probabilité]
+      for (const [c, x, p] of [['Légumes & Fruits', .09, .9], ['Boulangerie', .025, .95], ['Les salades', .02, .6], ['Œufs', .015, .5], ['Glaçons', .01, mf > 1.1 ? .8 : .3],
+        ['Glace', .02, mf > 1.1 ? .5 : .1], ['Café', .03, .3], ['Olives', .01, .2], ['Produits alimentaires', .06, .5], ['Gasoil', .04, .3], ['Produits d\'hygiène', .03, .15],
+        ['Emballage (sacs, boîtes, couverts)', .03, .2], ['Cire (allumage des bougies)', .008, .2], ['Petit matériel', .03, .05], ['Service', .04, .08], ['Divers', .02, .1]])
+        if (rnd() < p) C(iso, c, r(x * (.7 + rnd() * .6)));
+      // fournisseurs : factures à crédit, payées en partie plus tard
+      if (wd === 2) fac(iso, 'Boucherie Atlas', 'Boucherie', r(.5), ref('BA-'));
+      if (wd === 3 || wd === 6) fac(iso, 'Volailles Zaër', 'Volaille', r(.18), ref('VZ-'));
+      if (wd === 5) fac(iso, 'Poissonnerie du Port', 'Poisson', r(.2), ref('PP-'));
+      if (wd === 4) { fac(iso, 'Grossiste Boissons', 'Limonades', r(.3), ref('GB-')); fac(iso, 'Grossiste Boissons', 'Eaux minérales', r(.08), ref('GBE-')); }
+      if (day === 2 || day === 16) fac(iso, 'Fromagerie du Centre', 'Fromage', 1800 + rnd() * 600, ref('FC-'));
+      if (wd === 5) pay(iso, 'Boucherie Atlas', owed['Boucherie Atlas'] * .95, 'Banque', 'Chèque');
+      if (wd === 6) pay(iso, 'Volailles Zaër', owed['Volailles Zaër'] * .95, 'Caisse', 'Espèces');
+      if (day === 10) pay(iso, 'Poissonnerie du Port', owed['Poissonnerie du Port'] * .8, 'Banque', 'Virement');
+      if (day === 15) pay(iso, 'Grossiste Boissons', owed['Grossiste Boissons'] * .85, 'Banque', 'Virement');
+      if (day === 20) pay(iso, 'Fromagerie du Centre', owed['Fromagerie du Centre'] * .75, 'Banque', 'Chèque');
+      // caisse : retraits du patron, parfois un apport
+      if (rnd() < .1) d.mvts.push({ id: uid(), date: iso, type: 'Sortie', montant: 500 * Math.ceil(rnd() * 5), motif: pick(['Retrait personnel', 'Retrait personnel', 'Courses maison', 'Avance salaire serveur', 'Essence voiture']) });
+      if (rnd() < .02) d.mvts.push({ id: uid(), date: iso, type: 'Entrée', montant: 1000, motif: 'Apport pour la monnaie' });
+    }
+    const cb = sumBy(Object.keys(d.jours).filter(k => k.startsWith(ym)), k => d.jours[k].cb);
+    if (cb) C(ym + '-28', 'Commission CMI', cb * .015, 'Banque');      // commission TPE du mois
   }
   return d;
 }
