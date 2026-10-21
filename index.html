@@ -156,6 +156,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
     <button data-p="charges">Charges</button>
     <button data-p="caisse">Caisse</button>
     <button data-p="fournisseurs">Fournisseurs</button>
+    <button data-p="clients">Clients</button>
     <span class="nl">Rapports</span>
     <button data-p="rapport">Rapport du mois</button>
     <button data-p="bilan">Bilan mensuel</button>
@@ -192,6 +193,17 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
   <div class="saisie">
     <form id="fJour" class="card" autocomplete="off" onsubmit="return false"></form>
     <aside class="card live" id="live"></aside>
+  </div>
+  <div class="card" style="margin-top:16px"><h2>Crédit clients de ce jour</h2>
+    <form class="fClient addf" autocomplete="off"><input type="hidden" name="date">
+      <select name="client" aria-label="Client"></select>
+      <select name="type" aria-label="Opération"><option value="Crédit">Vente à crédit</option><option value="Remboursement">Remboursement</option></select>
+      <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant TTC (DH)" required>
+      <select name="mode" aria-label="Remboursé en" hidden><option value="Espèces">En espèces (caisse)</option><option value="Banque">Par banque / carte</option></select>
+      <input name="note" placeholder="Détail (n° ticket, repas…)">
+      <button class="btn pri">Ajouter</button>
+    </form>
+    <div class="tw" id="dayCred"></div>
   </div>
   <div class="card" style="margin-top:16px"><h2>Dépenses / charges de ce jour</h2>
     <form class="fCharge addc"><input type="hidden" name="date">
@@ -266,6 +278,26 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
   <div class="card" id="fDet" hidden></div>
 </section>
 
+<section id="p-clients" class="page" hidden>
+  <div class="bar"><h1>Clients</h1><button class="btn" onclick="print()">Imprimer</button></div>
+  <div class="kpis" id="clTiles"></div>
+  <div class="card noprint"><h2>Nouvelle opération</h2>
+    <form class="fClient addf" autocomplete="off"><input type="date" name="date" required aria-label="Date">
+      <select name="client" aria-label="Client"></select>
+      <select name="type" aria-label="Opération"><option value="Crédit">Vente à crédit</option><option value="Remboursement">Remboursement</option></select>
+      <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant TTC (DH)" required>
+      <select name="mode" aria-label="Remboursé en" hidden><option value="Espèces">En espèces (caisse)</option><option value="Banque">Par banque / carte</option></select>
+      <input name="note" placeholder="Détail (n° ticket, repas…)">
+      <button class="btn pri">Ajouter</button>
+    </form>
+    <p class="help" style="margin:0"><b>Vente à crédit</b> : comptée dans le CA du jour, augmente ce que le client vous doit.
+      <b>Remboursement</b> : diminue ce qu'il doit ; en espèces, l'argent entre dans la caisse (Reçu du jour). Si un client paie d'avance, c'est vous qui lui devez.
+      Ces opérations se saisissent aussi depuis la Saisie du jour.</p>
+  </div>
+  <div class="card"><h2>État des clients<span class="noprint"> — cliquez une ligne pour voir le relevé</span></h2><div class="tw" id="clEtat"></div></div>
+  <div class="card" id="clDet" hidden></div>
+</section>
+
 <section id="p-rapport" class="page" hidden>
   <div class="bar"><h1>Rapport du mois</h1><input type="month" class="ym" aria-label="Mois">
     <button class="btn" onclick="print()">Imprimer / Enregistrer en PDF</button><button class="btn pri" id="xMonth">Exporter Excel</button></div>
@@ -317,8 +349,6 @@ const F = [
   ['vir', 'Vir/Chéq', 'enc', 'Virements et chèques'],
   ['glovoEsp', 'Glovo/Espèce', 'enc', 'Pour info — non inclus dans le CA'],
   ['glovoLigne', 'Glovo/En ligne', 'enc', 'Payé en ligne via Glovo'],
-  ['creditClient', 'Crédit Client', 'cred', 'Vendu à crédit aujourd\'hui'],
-  ['creditPaye', 'Crédit Payé', 'cred', 'Crédit remboursé par les clients'],
   ['remise', 'Remise', 'perte', ''],
   ['offert', 'Offert', 'perte', ''],
   ['perte', 'Perte', 'perte', ''],
@@ -326,8 +356,8 @@ const F = [
   ['versement', 'Versement', 'caisse', 'Versé à la banque (Vrs Esp)'],
   ['versEur', 'Versement Euro (€)', 'caisse', 'Euros déposés à la banque ou changés, en €'],
 ];
-const GROUPS = [['enc', 'Encaissements'], ['cred', 'Crédit clients'], ['perte', 'Remises & pertes (pour info)'], ['caisse', 'Caisse']];
-const NUM = [...F.map(f => f[0]), 'dep', 'charges', 'ca', 'caTTC', 'recu', 'entree', 'sortie', 'payF', 'tvaCol', 'tvaRec', 'tvaPayee', 'eurDh', 'versEurDh'];
+const GROUPS = [['enc', 'Encaissements'], ['perte', 'Remises & pertes (pour info)'], ['caisse', 'Caisse']];
+const NUM = [...F.map(f => f[0]), 'creditClient', 'creditPaye', 'creditPayeEsp', 'dep', 'charges', 'ca', 'caTTC', 'recu', 'entree', 'sortie', 'payF', 'tvaCol', 'tvaRec', 'tvaPayee', 'eurDh', 'versEurDh'];
 // Colonnes du rapport, dans l'ordre de la feuille Excel d'origine
 const RCOLS = [['date', 'Date'], ['ca', 'CA HT'], ['caTTC', 'CA TTC'], ['esp', 'Espèce'], ['eur', 'Euro (€)'], ['cb', 'Carte Crédit'], ['vir', 'Vir/Chéq'], ['glovoEsp', 'Glovo/Espèce'], ['glovoLigne', 'Glovo/En ligne'],
   ['creditPaye', 'Crédit Payé'], ['creditClient', 'Crédit Client'], ['remise', 'Remise'], ['offert', 'Offert'], ['perte', 'Perte'], ['annul', 'Annulation'],
@@ -358,6 +388,17 @@ function migrateCats(cats, charges) {
   Object.assign(m.catGrp, { 'Salaires': 'Charge Personnel et cotisations', 'Impôts / Taxes': 'Impôts & Frais bancaires', 'Autre': VAR });
   return m;
 }
+// Données d'avant l'onglet Clients : les crédits du jour sans nom vont au client « Clients (sans nom) »
+const SANS_NOM = 'Clients (sans nom)';
+function migrateCredit(d) {
+  for (const [date, j] of Object.entries(d.jours)) {
+    for (const [k, type] of [['creditClient', 'Crédit'], ['creditPaye', 'Remboursement']]) {
+      if (+j[k]) d.cops.push({ id: uid(), date, client: SANS_NOM, type, montant: +j[k], mode: type === 'Crédit' ? '' : 'Espèces', note: '' });
+      delete j[k];
+    }
+  }
+  if (d.cops.some(o => o.client === SANS_NOM) && !d.clients.some(c => c.nom === SANS_NOM)) d.clients.push({ nom: SANS_NOM, tel: '', solde0: 0 });
+}
 const PARAMS = [['soldeInitial', 'Reste de départ (DH)', 'Argent déjà en main avant le 1er jour saisi'], ['fondCaisse', 'Fond de caisse (DH)', ''],
   ['euro', 'Euros au départ (€)', 'Euros compris dans le Reste de départ ; ensuite ils viennent de la Saisie du jour'], ['taux', 'Taux Euro → DH', 'Dans l\'Excel : 10'],
   ['tvaVentes', 'TVA sur les ventes (%)', 'Les ventes sont saisies TTC ; le CA est affiché HT = TTC ÷ (1 + taux)']];
@@ -383,7 +424,7 @@ const sumBy = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
 
 // ---------- stockage ----------
 const withUsed = (cats, charges = []) => [...new Set([...cats, ...charges.map(c => c.cat)])];
-const DEF = () => ({ jours: {}, charges: [], mvts: [], fours: [], paiements: [], ...defCats(), params: { soldeInitial: 0, fondCaisse: 0, euro: 0, taux: 10, tvaVentes: 10 }, lastBackup: null });
+const DEF = () => ({ jours: {}, charges: [], mvts: [], fours: [], paiements: [], clients: [], cops: [], ...defCats(), params: { soldeInitial: 0, fondCaisse: 0, euro: 0, taux: 10, tvaVentes: 10 }, lastBackup: null });
 // Les données vont dans un fichier Excel choisi par l'utilisateur (Chrome / Edge).
 // Le navigateur en garde aussi une copie (localStorage), utilisée si le fichier n'est pas accessible.
 function load() {
@@ -392,7 +433,9 @@ function load() {
   if (!raw) return DEF();
   try {
     const d = JSON.parse(raw), def = DEF();
-    return { ...def, ...d, ...(d.catGrp ? {} : migrateCats(d.cats || [], d.charges || [])), params: { ...def.params, ...d.params } };
+    const out = { ...def, ...d, ...(d.catGrp ? {} : migrateCats(d.cats || [], d.charges || [])), params: { ...def.params, ...d.params } };
+    if (!d.cops) migrateCredit(out);
+    return out;
   } catch (e) {
     // on garde une copie des données illisibles au lieu de les écraser
     try { localStorage.setItem(KEY + '.illisible.' + Date.now(), raw); } catch { }
@@ -419,10 +462,11 @@ function demoData() {
   const rnd = (x => () => (x = x * 16807 % 2147483647) / 2147483647)(7), pick = a => a[Math.floor(rnd() * a.length)];
   const d = { ...DEF(), params: { ...DEF().params, soldeInitial: 6000, fondCaisse: 2000, euro: 150 },
     fours: ['Boucherie Atlas', 'Volailles Zaër', 'Poissonnerie du Port', 'Grossiste Boissons', 'Fromagerie du Centre', 'Emballages Pro']
-      .map(nom => ({ nom, tel: '', solde0: { 'Boucherie Atlas': 3200, 'Grossiste Boissons': 1500 }[nom] || 0 })) };
+      .map(nom => ({ nom, tel: '', solde0: { 'Boucherie Atlas': 3200, 'Grossiste Boissons': 1500 }[nom] || 0 })),
+    clients: ['Bureau Atlas Conseil', 'M. Karim B.', 'Mme Salma E.', 'Agence Voyages Sud', 'Équipe du chantier voisin'].map(nom => ({ nom, tel: '', solde0: nom === 'M. Karim B.' ? 450 : 0 })) };
   const K = [.75, .9, .95, 1, 1.15, 1.45, 1.35];                       // dimanche → samedi
   const MF = [.85, .9, .78, 1, 1.05, 1.15, 1.3, 1.38, 1.05, 1, .92, 1.1]; // saison : janvier → décembre
-  const t = today(), months = [t.slice(0, 7)], owed = {};              // owed : facturé depuis le dernier paiement
+  const t = today(), months = [t.slice(0, 7)], owed = {}, bal = {};    // owed : facturé depuis le dernier paiement ; bal : dû par client
   let eurHeld = d.params.euro, cash = d.params.soldeInitial;           // euros en caisse ; argent en caisse (DH, euros compris)
   while (months.length < 6 || months[0] > t.slice(0, 4) + '-01') months.unshift(prevYm(months[0]));
   const C = (date, cat, montant, source = 'Caisse', x = {}) => date <= t && d.charges.push({ id: uid(), date, cat, lib: '', montant: Math.round(montant), source, ...x });
@@ -456,15 +500,23 @@ function demoData() {
       if (iso.slice(5) === '08-14') fac(iso, 'Boucherie Atlas', 'Boucherie', -650, 'Retour viande', 0, 'Avoir');
       if (iso.slice(5) === '09-03') pay(iso, 'Emballages Pro', 3000, 'Banque', 'Avance');              // avance : ce fournisseur finit par vous devoir
       if (iso.slice(5) === '09-20') fac(iso, 'Emballages Pro', 'Emballage (sacs, boîtes, couverts)', 1800, 'EP-0920', 20);
+      if (iso.slice(5) === '09-25') d.cops.push({ id: uid(), date: iso, client: 'Agence Voyages Sud', type: 'Remboursement', montant: 2500, mode: 'Banque', note: 'Avance pour un groupe' }) && (bal['Agence Voyages Sud'] = (bal['Agence Voyages Sud'] || 0) - 2500); // payé d'avance
       if (wd === 1 && rnd() < .5) continue;                             // fermé certains lundis
       d.jours[iso] = { esp: r(.52), cb: r(.3), vir: rnd() < .2 ? r(.08) : 0, glovoEsp: r(.04), glovoLigne: r(.11),
-        creditClient: rnd() < .3 ? r(.07) : 0, creditPaye: rnd() < .25 ? r(.05) : 0, remise: rnd() < .4 ? r(.012) : 0,
+        remise: rnd() < .4 ? r(.012) : 0,
         offert: rnd() < .3 ? r(.008) : 0, perte: rnd() < .15 ? r(.01) : 0, annul: rnd() < .1 ? r(.006) : 0,
         versement: 0, obs: wd === 6 ? 'Versement hebdomadaire' : '' };
       const j = d.jours[iso];                                           // touristes : une partie payée en euros, changée une fois par mois
       if (rnd() < (mf > 1.1 ? .6 : .3)) eurHeld += j.eur = Math.round(b * .1 / 10);
       if (wd === 6 && day <= 7 && eurHeld > 200) eurHeld -= j.versEur = Math.floor(eurHeld * .8 / 50) * 50;
-      cash += j.esp + j.creditPaye + ((j.eur || 0) - (j.versEur || 0)) * d.params.taux;
+      // crédit clients : ventes à crédit, remboursées plus tard (surtout en espèces)
+      let rembEsp = 0;
+      if (rnd() < .3) { const c = pick(d.clients).nom, m = r(.07); bal[c] = (bal[c] || 0) + m;
+        d.cops.push({ id: uid(), date: iso, client: c, type: 'Crédit', montant: m, mode: '', note: pick(['Déjeuner équipe', 'Repas', 'Commande à emporter', 'Plateaux repas', '']) }); }
+      const dus = d.clients.filter(c => (bal[c.nom] || 0) > 200);
+      if (dus.length && rnd() < .25) { const c = pick(dus).nom, m = Math.round(bal[c] * (.5 + rnd() * .5) / 10) * 10, mode = rnd() < .8 ? 'Espèces' : 'Banque';
+        bal[c] -= m; if (mode === 'Espèces') rembEsp += m; d.cops.push({ id: uid(), date: iso, client: c, type: 'Remboursement', montant: m, mode, note: '' }); }
+      cash += j.esp + rembEsp + ((j.eur || 0) - (j.versEur || 0)) * d.params.taux;
       if (wd === 6) cash -= j.versement = Math.max(0, Math.round((cash - 9000 - rnd() * 4000) / 100) * 100); // on garde ~10 000 DH en caisse
       // achats du jour payés en caisse : [catégorie, part du CA, probabilité]
       for (const [c, x, p] of [['Légumes & Fruits', .09, .9], ['Boulangerie', .025, .95], ['Les salades', .02, .6], ['Œufs', .015, .5], ['Glaçons', .01, mf > 1.1 ? .8 : .3],
@@ -537,7 +589,7 @@ async function newFile() {
 }
 async function openFile() {
   if (demoBlock()) return;
-  if ((db.charges.length || db.mvts.length || db.fours.length || Object.keys(db.jours).length) && !confirm('Les données du fichier vont remplacer celles affichées. Continuer ?')) return;
+  if ((db.charges.length || db.mvts.length || db.fours.length || db.clients.length || Object.keys(db.jours).length) && !confirm('Les données du fichier vont remplacer celles affichées. Continuer ?')) return;
   try { const [h] = await showOpenFilePicker(XLSX_PICK); await useFile(h, 'ouvrir'); } catch (e) { fail(e); }
 }
 async function reconnect() {
@@ -566,12 +618,13 @@ async function initFile() { // reprendre le fichier utilisé la dernière fois
 
 // ---------- calculs (les formules de la feuille Excel) ----------
 function ledger(d = db) {
-  const byDate = {}, mvByDate = {}, payByDate = {};
+  const byDate = {}, mvByDate = {}, payByDate = {}, coByDate = {};
   for (const c of d.charges) (byDate[c.date] ??= []).push(c);
   for (const m of d.mvts) (mvByDate[m.date] ??= []).push(m);
   for (const p of d.paiements) if (p.mode === 'Caisse') (payByDate[p.date] ??= []).push(p);
-  const dates = [...new Set([d.jours, byDate, mvByDate, payByDate].flatMap(Object.keys))].sort();
-  let reste = +d.params.soldeInitial || 0, credit = 0, eur = +d.params.euro || 0;
+  for (const o of d.cops) (coByDate[o.date] ??= []).push(o);
+  const dates = [...new Set([d.jours, byDate, mvByDate, payByDate, coByDate].flatMap(Object.keys))].sort();
+  let reste = +d.params.soldeInitial || 0, credit = sumBy(d.clients, c => +c.solde0 || 0), eur = +d.params.euro || 0;
   const kHT = 1 + (+d.params.tvaVentes || 0) / 100, taux = +d.params.taux || 0; // les montants saisis sont TTC
   // ponytail: euros convertis au taux actuel des paramètres, même pour les jours passés ; un taux par jour si le change compte
   return dates.map(date => {
@@ -584,9 +637,13 @@ function ledger(d = db) {
     r.tvaPayee = sumBy(ch.filter(c => !isCharge(c)), c => +c.montant || 0); // TVA versée à la DGI : pas une charge
     r.tvaRec = sumBy(ch, c => (+c.montant || 0) * (+c.tva || 0) / 100);   // TVA des factures, récupérable
     r.eurDh = r.eur * taux; r.versEurDh = r.versEur * taux;                // euros reçus / sortis, en DH
+    // crédit clients : ventes à crédit et remboursements nominatifs (onglet Clients) ; seul le remboursement en espèces entre en caisse
+    const co = coByDate[date] || [], rb = co.filter(o => o.type !== 'Crédit');
+    r.creditClient = sumBy(co.filter(o => o.type === 'Crédit'), o => +o.montant || 0);
+    r.creditPaye = sumBy(rb, o => +o.montant || 0); r.creditPayeEsp = sumBy(rb.filter(o => o.mode !== 'Banque'), o => +o.montant || 0);
     r.caTTC = r.esp + r.eurDh + r.cb + r.vir + r.glovoLigne + r.creditClient + r.dep; // colonne B
     r.ca = r.caTTC / kHT; r.tvaCol = r.caTTC - r.ca;                       // le CA est suivi HT
-    r.recu = r.esp + r.eurDh + r.creditPaye;                              // colonne P
+    r.recu = r.esp + r.eurDh + r.creditPayeEsp;                           // colonne P
     eur += r.eur - r.versEur; r.eurCaisse = eur;                          // euros en caisse, en €
     const mv = mvByDate[date] || [];                                      // entrées / sorties : hors CA
     r.entree = sumBy(mv.filter(m => m.type === 'Entrée'), m => +m.montant || 0);
@@ -599,7 +656,7 @@ function ledger(d = db) {
 const totals = rows => Object.fromEntries(NUM.map(k => [k, sumBy(rows, r => r[k])]));
 const monthRows = (L, ym) => L.filter(r => r.date.startsWith(ym));
 function at(L, date) { // Reste, crédit en cours et euros en caisse à la fin de `date`
-  let reste = +db.params.soldeInitial || 0, credit = 0, eur = +db.params.euro || 0;
+  let reste = +db.params.soldeInitial || 0, credit = sumBy(db.clients, c => +c.solde0 || 0), eur = +db.params.euro || 0;
   for (const r of L) { if (r.date > date) break; reste = r.reste; credit = r.credit; eur = r.eurCaisse; }
   return { reste, credit, eur };
 }
@@ -714,7 +771,8 @@ function insights(s) {
     s.cats.length ? `Premier poste : ${esc(s.cats[0][0])}, ${fmt(s.cats[0][1])} DH (${pct(s.cats[0][1] / t.charges * 100)} des charges).` : '');
   add(s.res >= 0 ? 'up' : 'dn', `${s.res >= 0 ? 'Bénéfice' : 'Perte'} de ${fmt(Math.abs(s.res))} DH`, `marge de ${pct(s.marge)} sur le chiffre d'affaires.`);
   const dc = t.creditClient - t.creditPaye;
-  if (s.end.credit > 0) add(dc > 0 ? 'dn' : 'up', `${fmt(s.end.credit)} DH de crédit client à récupérer`,
+  const du = creditDu(s.ref);
+  if (du > 0) add(dc > 0 ? 'dn' : 'up', `${fmt(du)} DH de crédit client à récupérer`,
     dc ? `${dc > 0 ? 'en hausse de ' : 'en baisse de '}${fmt(Math.abs(dc))} DH ce mois (${fmt(t.creditClient)} DH accordés, ${fmt(t.creditPaye)} DH remboursés).` : 'stable ce mois.');
   if (s.pertes > 0 && t.ca) add(s.pertes / t.ca > .03 ? 'dn' : '', `Remises, offerts, pertes et annulations : ${fmt(s.pertes)} DH`, `${pct(s.pertes / t.ca * 100)} du chiffre d'affaires.`);
   const miss = s.all.filter(x => x <= s.ref && !(s.map[x]?.ca > 0)).length;
@@ -726,7 +784,7 @@ const insList = o => o.length
   : '<p class="empty">Aucune vente saisie pour ce mois : les constats apparaîtront dès la première journée saisie.</p>';
 
 // ---------- pages ----------
-const state = { page: location.hash.slice(1), ym: today().slice(0, 7), date: today(), year: new Date().getFullYear(), four: null };
+const state = { page: location.hash.slice(1), ym: today().slice(0, 7), date: today(), year: new Date().getFullYear(), four: null, client: null };
 
 function dash() {
   const st = stats(state.ym), t = st.t, taux = +db.params.taux || 0;
@@ -742,7 +800,7 @@ function dash() {
     kpi('Reste en caisse', fmt(st.end.reste), `au ${fd(st.ref)}` + (t.sortie ? ` · ${fmt(t.sortie)} sortis ce mois` : '') + (st.end.eur ? ` · dont ${fmt(st.end.eur)} € (${fmt(st.end.eur * taux)} DH)` : '')) +
     kpi('Euros encaissés — ' + mName(st.ym), fmt(t.eur) + ' €', `= ${fmt(t.eurDh)} DH au taux de ${taux} · compris dans le CA`) +
     kpi('Euros en caisse', fmt(st.end.eur) + ' €', `= ${fmt(st.end.eur * taux)} DH · au ${fd(st.ref)}` + (t.versEur ? ` · ${fmt(t.versEur)} € versés ce mois` : '')) +
-    kpi('Crédit clients en cours', fmt(st.end.credit), 'à récupérer auprès des clients') +
+    kpi('Crédit clients en cours', fmt(creditDu(st.ref)), `à récupérer au ${fd(st.ref)} · ${db.clients.filter(c => compteClient(c.nom, db, st.ref).solde > 0).length} client(s) · onglet Clients`) +
     (db.fours.length ? kpi('À payer aux fournisseurs', fmt(sumBy(db.fours, f => Math.max(0, compte(f.nom).solde))), 'solde actuel · onglet Fournisseurs') : '');
   $('#dIns').innerHTML = insList(insights(st));
   const days = st.all;
@@ -766,6 +824,7 @@ function saisie() {
   const j = db.jours[state.date] || {};
   for (const el of $('#fJour').elements) el.value = j[el.name] || '';
   document.querySelector('#p-saisie .fCharge [name=date]').value = state.date;
+  document.querySelector('#p-saisie .fClient [name=date]').value = state.date;
   live();
 }
 function live() {
@@ -779,11 +838,13 @@ function live() {
     ${r.entree || r.sortie ? kv('Entrées − sorties de caisse', signed(r.entree - r.sortie), 'onglet Caisse') : ''}
     ${kv('Reste en caisse', fmt(st.reste), 'Reste veille + Reçu − Versements + Entrées − Sorties')}
     ${kv('Euros en caisse', fmt(st.eur) + ' €', `= ${fmt(st.eur * (+db.params.taux || 0))} DH · compris dans le Reste`)}
-    ${kv('Crédit clients en cours', fmt(st.credit))}
+    ${kv('Crédit clients en cours', fmt(creditDu(state.date)), 'à récupérer · onglet Clients')}
     ${kv('CA HT du mois à ce jour', fmt(mtd), mName(ym))}
     ${kv('Toutes charges du jour', fmt(r.charges), 'caisse + banque + factures HT')}`;
   const ch = db.charges.filter(c => c.date === state.date);
   $('#dayCh').innerHTML = ch.length ? chargeTable(ch, false) : '<p class="empty">Aucune dépense ce jour.</p>';
+  const co = db.cops.filter(o => o.date === state.date);
+  $('#dayCred').innerHTML = co.length ? copTable(co) : '<p class="empty">Aucun crédit client ce jour.</p>';
 }
 function chargeTable(list, withDate) {
   return `<table><thead><tr>${withDate ? '<th>Date</th>' : ''}<th class="t">Catégorie</th><th class="t">Libellé</th><th class="t">Source</th><th>Montant</th><th></th></tr></thead><tbody>` +
@@ -860,6 +921,47 @@ function fournisseurs() {
     (c.ops.length ? '' : `<button class="btn noprint" data-delfour="${esc(c.nom)}">Supprimer ce fournisseur</button>`);
 }
 
+// Compte client : solde > 0 = le client vous doit, < 0 = vous lui devez (il a payé d'avance)
+function compteClient(nom, d = db, upTo = '9999') {
+  const c = d.clients.find(x => x.nom === nom) || {}, solde0 = +c.solde0 || 0;
+  const ops = d.cops.filter(o => o.client === nom && o.date <= upTo).map(o => ({ ...o, v: o.type === 'Crédit' ? +o.montant || 0 : -(+o.montant || 0),
+    op: o.type === 'Crédit' ? 'Vente à crédit' : o.mode === 'Banque' ? 'Remboursement banque' : 'Remboursement espèces' })).sort((a, b) => a.date.localeCompare(b.date));
+  let solde = solde0;
+  for (const o of ops) o.solde = solde = cent(solde + o.v);
+  return { nom, tel: c.tel || '', solde0, ops, solde, cred: sumBy(ops, o => Math.max(0, o.v)), remb: -sumBy(ops, o => Math.min(0, o.v)) };
+}
+// ce que les clients doivent à la fin de `date` (les avances de clients ne s'en déduisent pas)
+const creditDu = date => sumBy(db.clients, c => Math.max(0, compteClient(c.nom, db, date).solde));
+const slC = (s, nom) => s > 0 ? `${esc(nom)} vous doit ${fmt(s)} DH` : s < 0 ? `Vous devez ${fmt(-s)} DH à ${esc(nom)} (avance)` : 'Compte soldé ✓';
+const copTable = list => `<table><thead><tr><th>Client</th><th class="t">Opération</th><th class="t">Détail</th><th>Montant</th><th></th></tr></thead><tbody>` +
+  list.map(o => `<tr><td>${esc(o.client)}</td><td class="t">${o.type === 'Crédit' ? 'Vente à crédit' : 'Remboursement ' + (o.mode === 'Banque' ? 'banque' : 'espèces')}</td><td class="t">${esc(o.note)}</td>` +
+    `<td>${signed(o.type === 'Crédit' ? +o.montant : -o.montant)}</td><td><button class="x" data-delcop="${esc(o.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') + '</tbody></table>';
+function clients() {
+  const f = document.querySelector('#p-clients .fClient').elements;
+  if (!f.date.value) f.date.value = today();
+  const C = db.clients.map(x => compteClient(x.nom)).sort((a, b) => b.solde - a.solde), doit = C.filter(c => c.solde > 0), av = C.filter(c => c.solde < 0);
+  $('#clTiles').innerHTML = kpi('Les clients vous doivent', fmt(sumBy(doit, c => c.solde)), `${doit.length} client(s) à relancer`, 'lead') +
+    kpi('Vous devez aux clients', fmt(-sumBy(av, c => c.solde)), 'avances payées par des clients') + kpi('Clients', C.length, '');
+  const money = v => v ? fmt(v) : '';
+  $('#clEtat').innerHTML = !C.length ? '<p class="empty">Aucun client : choisissez « ➕ Nouveau client… » dans la liste ci-dessus.</p>'
+    : `<table><thead><tr><th>Client</th><th class="t">Téléphone</th><th>Solde de départ</th><th>Crédit accordé</th><th>Remboursé</th><th>Il vous doit</th><th>Vous lui devez</th></tr></thead><tbody>` +
+      C.map(c => `<tr class="click" data-client="${esc(c.nom)}"><td>${state.client === c.nom ? '<b>' + esc(c.nom) + '</b>' : esc(c.nom)}</td><td class="t">${esc(c.tel)}</td><td>${money(c.solde0)}</td><td>${money(c.cred)}</td><td>${money(c.remb)}</td><td class="bad">${c.solde > 0 ? fmt(c.solde) : ''}</td><td class="good">${c.solde < 0 ? fmt(-c.solde) : ''}</td></tr>`).join('') +
+      `</tbody><tfoot><tr><td colspan="5">Total</td><td>${fmt(sumBy(doit, c => c.solde))}</td><td>${fmt(-sumBy(av, c => c.solde))}</td></tr></tfoot></table>`;
+  const c = db.clients.some(x => x.nom === state.client) && compteClient(state.client);
+  $('#clDet').hidden = !c;
+  if (!c) return;
+  $('#clDet').innerHTML = `<h2>Relevé de compte — ${esc(c.nom)}</h2><div class="big" style="font-size:26px;margin-bottom:12px">${slC(c.solde, c.nom)}</div>
+    <div class="flds noprint" style="margin-bottom:12px;max-width:440px">
+      <label class="fld"><span>Téléphone</span><input data-cset="tel" value="${esc(c.tel)}"></label>
+      <label class="fld"><span>Solde de départ (DH)</span><input data-cset="solde0" type="number" step="0.01" value="${c.solde0}"><small>ce qu'il devait déjà avant la 1re opération saisie (− si c'est vous qui lui deviez)</small></label></div>
+    <div class="tw"><table><thead><tr><th>Date</th><th class="t">Opération</th><th class="t">Détail</th><th>Crédit</th><th>Remboursé</th><th>Solde</th><th></th></tr></thead><tbody>
+      <tr><td></td><td class="t">Solde de départ</td><td></td><td></td><td></td><td>${fmt(c.solde0)}</td><td></td></tr>` +
+      c.ops.map(o => `<tr><td>${fd(o.date)}</td><td class="t">${o.op}</td><td class="t">${esc(o.note)}</td><td>${o.v > 0 ? fmt(o.v) : ''}</td><td>${o.v < 0 ? fmt(-o.v) : ''}</td><td>${fmt(o.solde)}</td><td><button class="x" data-delcop="${esc(o.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
+      `</tbody><tfoot><tr><td colspan="3">Total</td><td>${fmt(c.cred)}</td><td>${fmt(c.remb)}</td><td>${fmt(c.solde)}</td><td></td></tr></tfoot></table></div>
+    <p class="help">Solde positif = le client vous doit · négatif = vous lui devez.</p>` +
+    (c.ops.length ? '' : `<button class="btn noprint" data-delclient="${esc(c.nom)}">Supprimer ce client</button>`);
+}
+
 function rapport() {
   const st = stats(state.ym), L = st.L, ym = st.ym, t = st.t, p = db.params, days = monthDays(L, ym);
   const endReste = days.filter(d => d.reste != null).at(-1)?.reste ?? at(L, ym + '-01').reste, endEur = st.end.eur, eurDh = endEur * p.taux;
@@ -875,7 +977,7 @@ function rapport() {
     ${kpi('Résultat', signed(st.res), 'marge ' + pct(st.marge))}
     ${kpi('CA moyen par jour travaillé', fmt(st.avg), st.act.length + ' jour(s) avec ventes')}
     ${kpi('Reste en caisse', fmt(endReste), 'fin de période')}
-    ${kpi('Crédit clients en cours', fmt(st.end.credit), 'à récupérer')}
+    ${kpi('Crédit clients en cours', fmt(creditDu(st.ref)), 'à récupérer')}
   </div>
   <div class="card"><h2>Ce qu'il faut retenir</h2>${insList(insights(st))}</div>
   <div class="grid2">
@@ -887,7 +989,7 @@ function rapport() {
     <div class="card"><h2>CA HT moyen par jour de la semaine (DH)</h2><div id="rDow" class="chart"></div></div>
     <div class="card"><h2>Caisse en fin de période</h2>
       ${kv('Euro', `${fmt(endEur)} € × ${p.taux} = ${fmt(eurDh)}`, `${fmt(t.eur)} € encaissés, ${fmt(t.versEur)} € versés sur le mois`)}${kv('Dirhams', fmt(endReste - eurDh))}${kv('<b>Total général</b>', fmt(endReste))}${kv('Fonds de caisse', fmt(p.fondCaisse))}
-      ${kv('Versements à la banque', fmt(t.versement), 'sur le mois')}${kv('Entrées / sorties de caisse', `+${fmt(t.entree)} / −${fmt(t.sortie)}`, 'sur le mois, hors CA')}${t.payF ? kv('Fournisseurs payés en espèces', fmt(t.payF), 'compris dans la colonne Dépense') : ''}${kv('Crédit clients en cours', fmt(st.end.credit))}
+      ${kv('Versements à la banque', fmt(t.versement), 'sur le mois')}${kv('Entrées / sorties de caisse', `+${fmt(t.entree)} / −${fmt(t.sortie)}`, 'sur le mois, hors CA')}${t.payF ? kv('Fournisseurs payés en espèces', fmt(t.payF), 'compris dans la colonne Dépense') : ''}${kv('Crédit clients en cours', fmt(creditDu(st.ref)))}
     </div>
   </div>
   <div class="card pbreak"><h2>Bilan du mois</h2><div class="tw">${bilanTable([ym], [`<th>${mName(ym)}</th>`])}</div></div>
@@ -1003,6 +1105,8 @@ function toWorkbook() {
     ['Journal', [['Date', ...F.map(f => f[1]), 'Observation'], ...Object.keys(db.jours).sort().map(d => [d, ...F.map(f => +db.jours[d][f[0]] || 0), db.jours[d].obs || ''])], [12, ...F.map(() => 12), 30]],
     ['Charges', [['Date', 'Catégorie', 'Libellé', 'Montant', 'Source', 'Fournisseur', 'Référence', 'TVA %'], ...[...db.charges].sort((a, b) => a.date.localeCompare(b.date)).map(c => [c.date, c.cat, c.lib, c.montant, c.source, c.four || '', c.ref || '', c.tva ?? ''])], [12, 22, 30, 12, 11, 22, 14, 8]],
     ['Fournisseurs', [['Nom', 'Téléphone', 'Solde de départ', 'Solde actuel'], ...db.fours.map(f => [f.nom, f.tel, f.solde0, compte(f.nom).solde])], [26, 16, 14, 14]],
+    ['Clients', [['Nom', 'Téléphone', 'Solde de départ', 'Solde actuel'], ...db.clients.map(c => [c.nom, c.tel, c.solde0, compteClient(c.nom).solde])], [26, 16, 14, 14]],
+    ['Crédits clients', [['Date', 'Client', 'Type', 'Montant', 'Mode', 'Détail'], ...[...db.cops].sort((a, b) => a.date.localeCompare(b.date)).map(o => [o.date, o.client, o.type, o.montant, o.mode, o.note])], [12, 26, 14, 12, 10, 30]],
     ['Paiements', [['Date', 'Fournisseur', 'Montant', 'Mode', 'Référence'], ...[...db.paiements].sort((a, b) => a.date.localeCompare(b.date)).map(p => [p.date, p.four, p.montant, p.mode, p.ref])], [12, 26, 12, 10, 14]],
     ['Caisse', [['Date', 'Type', 'Montant', 'Motif'], ...[...db.mvts].sort((a, b) => a.date.localeCompare(b.date)).map(m => [m.date, m.type, m.montant, m.motif])], [12, 10, 12, 30]],
     ['Catégories', [['Catégorie', 'Groupe'], ...db.cats.map(c => [c, grpOf(c)])], [34, 30]],
@@ -1012,10 +1116,20 @@ function toWorkbook() {
 }
 function fromWorkbook(wb) {
   const rows = n => wb.Sheets[n] && XLSX.utils.sheet_to_json(wb.Sheets[n], { defval: '' });
-  const J = rows('Journal'), C = rows('Charges'), P = rows('Paramètres'), K = rows('Catégories'), M = rows('Caisse'), FO = rows('Fournisseurs'), PA = rows('Paiements');
+  const J = rows('Journal'), C = rows('Charges'), P = rows('Paramètres'), K = rows('Catégories'), M = rows('Caisse'), FO = rows('Fournisseurs'), PA = rows('Paiements'), CL = rows('Clients'), CO = rows('Crédits clients');
   if (!J || !C) return null;
   const nd = { ...DEF(), lastBackup: db.lastBackup };
-  for (const r of J) { const d = toIso(r.Date); if (!d) continue; const j = { obs: String(r.Observation || '') }; for (const [k, l] of F) j[k] = num(r[l]); nd.jours[d] = j; }
+  for (const r of J) {
+    const d = toIso(r.Date); if (!d) continue;
+    const j = { obs: String(r.Observation || '') }; for (const [k, l] of F) j[k] = num(r[l]);
+    j.creditClient = num(r['Crédit Client']); j.creditPaye = num(r['Crédit Payé']);   // anciens fichiers : crédit du jour sans nom
+    nd.jours[d] = j;
+  }
+  migrateCredit(nd);
+  for (const r of CL || []) { const nom = String(r.Nom || '').trim(); if (nom && !nd.clients.some(c => c.nom === nom)) nd.clients.push({ nom, tel: String(r['Téléphone'] || ''), solde0: num(r['Solde de départ']) }); }
+  for (const r of CO || []) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.cops.push({ id: uid(), date: d, client: String(r.Client || '').trim(), type: r.Type === 'Crédit' ? 'Crédit' : 'Remboursement',
+    montant: num(r.Montant), mode: r.Type === 'Crédit' ? '' : r.Mode === 'Banque' ? 'Banque' : 'Espèces', note: String(r['Détail'] || '') }); }
+  for (const n of nd.cops.map(o => o.client)) if (n && !nd.clients.some(c => c.nom === n)) nd.clients.push({ nom: n, tel: '', solde0: 0 });
   for (const r of C) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.charges.push({ id: uid(), date: d, cat: String(r['Catégorie'] || 'Autre'), lib: String(r['Libellé'] || ''), montant: num(r.Montant),
     source: ['Banque', 'Fournisseur'].includes(r.Source) ? r.Source : 'Caisse', four: String(r.Fournisseur || '').trim(), ref: String(r['Référence'] || ''),
     ...(r['TVA %'] === '' || r['TVA %'] == null ? {} : { tva: num(r['TVA %']) }) }); }
@@ -1050,13 +1164,13 @@ async function restore(file) {
 }
 
 // ---------- navigation & événements ----------
-const PAGES = { dash, saisie, charges, caisse, fournisseurs, rapport, bilan, params };
+const PAGES = { dash, saisie, charges, caisse, fournisseurs, clients, rapport, bilan, params };
 function render() {
   if (!PAGES[state.page]) state.page = 'dash';
   document.querySelectorAll('.page').forEach(s => s.hidden = s.id !== 'p-' + state.page);
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.p === state.page));
   document.querySelectorAll('.ym').forEach(i => i.value = state.ym);
-  fillCats(); fillFours();
+  fillCats(); fillFours(); fillClients();
   renderBanner();
   PAGES[state.page]();
 }
@@ -1087,6 +1201,18 @@ function addFour(name) { // même principe que addCat
   const found = db.fours.find(x => x.nom.toLowerCase() === n.toLowerCase());
   if (found) return found.nom;
   db.fours.push({ nom: n, tel: '', solde0: 0 }); save(); return n;
+}
+const NEW_CLIENT = '__nouveau_client';
+function fillClients() {
+  const opts = '<option value="">— Client —</option>' + [...db.clients].sort((a, b) => a.nom.localeCompare(b.nom, 'fr')).map(c => `<option>${esc(c.nom)}</option>`).join('') + `<option value="${NEW_CLIENT}">➕ Nouveau client…</option>`;
+  document.querySelectorAll('select[name=client]').forEach(s => { const v = s.value; s.innerHTML = opts; if (db.clients.some(c => c.nom === v)) s.value = v; });
+}
+function addClient(name) { // même principe que addFour
+  const n = String(name || '').trim();
+  if (!n) return null;
+  const found = db.clients.find(x => x.nom.toLowerCase() === n.toLowerCase());
+  if (found) return found.nom;
+  db.clients.push({ nom: n, tel: '', solde0: 0 }); save(); return n;
 }
 function renderBanner() {
   const name = fileH ? `<b>${esc(fileH.name)}</b>` : '';
@@ -1122,6 +1248,14 @@ document.addEventListener('change', e => {
   }
   const k = e.target.dataset?.fset, fo = k && db.fours.find(x => x.nom === state.four);
   if (fo) { fo[k] = k === 'tel' ? e.target.value.trim() : num(e.target.value); save(); render(); }
+  if (e.target.name === 'client' && e.target.value === NEW_CLIENT) {
+    const n = addClient(prompt('Nom du client :'));
+    fillClients(); e.target.value = n || '';
+    if (n) { state.client = n; if (state.page === 'clients') clients(); }
+  }
+  if (e.target.form?.matches('.fClient') && e.target.name === 'type') e.target.form.mode.hidden = e.target.value === 'Crédit';
+  const kc = e.target.dataset?.cset, cl = kc && db.clients.find(x => x.nom === state.client);
+  if (cl) { cl[kc] = kc === 'tel' ? e.target.value.trim() : num(e.target.value); save(); render(); }
 });
 $('#fCat').g.innerHTML = GRPS.map(g => `<option${g === DEF_GRP ? ' selected' : ''}>${esc(g)}</option>`).join('');
 $('#fCat').onsubmit = e => { e.preventDefault(); addCat(e.target.c.value, e.target.g.value); e.target.c.value = ''; render(); };
@@ -1159,6 +1293,14 @@ $('#fJour').addEventListener('input', e => {
   save(); live();
 });
 document.addEventListener('submit', e => {
+  if (e.target.matches('.fClient')) {
+    e.preventDefault();
+    const f = e.target.elements, m = num(f.montant.value), client = f.client.value, type = f.type.value;
+    if (!db.clients.some(c => c.nom === client)) return alert('Choisissez un client.');
+    if (!f.date.value || !(m > 0)) return alert('Indiquez une date et un montant supérieur à 0.');
+    db.cops.push({ id: uid(), date: f.date.value, client, type, montant: m, mode: type === 'Crédit' ? '' : f.mode.value, note: f.note.value.trim() });
+    state.client = client; save(); f.montant.value = ''; f.note.value = ''; return render();
+  }
   if (!e.target.matches('.fCharge')) return;
   e.preventDefault();
   const f = e.target.elements, m = num(f.montant.value);
@@ -1176,6 +1318,12 @@ document.addEventListener('click', e => {
   if (pay) { if (confirm(`Supprimer le paiement de ${fmt(pay.montant)} DH à ${pay.four} du ${fd(pay.date)} ?`)) { db.paiements = db.paiements.filter(x => x !== pay); save(); render(); } return; }
   const df = e.target.closest('[data-delfour]');
   if (df) { if (confirm(`Supprimer le fournisseur « ${df.dataset.delfour} » ?`)) { db.fours = db.fours.filter(x => x.nom !== df.dataset.delfour); state.four = null; save(); render(); } return; }
+  const dco = e.target.closest('[data-delcop]'), cop = dco && db.cops.find(x => x.id === dco.dataset.delcop);
+  if (cop) { if (confirm(`Supprimer « ${cop.type === 'Crédit' ? 'vente à crédit' : 'remboursement'} » de ${fmt(cop.montant)} DH pour ${cop.client} du ${fd(cop.date)} ?`)) { db.cops = db.cops.filter(x => x !== cop); save(); render(); } return; }
+  const dcl = e.target.closest('[data-delclient]');
+  if (dcl) { if (confirm(`Supprimer le client « ${dcl.dataset.delclient} » ?`)) { db.clients = db.clients.filter(x => x.nom !== dcl.dataset.delclient); state.client = null; save(); render(); } return; }
+  const cr = e.target.closest('[data-client]');
+  if (cr) { state.client = cr.dataset.client; document.querySelector('#p-clients .fClient').elements.client.value = state.client; clients(); return $('#clDet').scrollIntoView({ behavior: 'smooth' }); }
   const fr = e.target.closest('[data-four]');
   if (fr) { state.four = fr.dataset.four; $('#fOp').elements.four.value = state.four; fournisseurs(); return $('#fDet').scrollIntoView({ behavior: 'smooth' }); }
   const del = e.target.closest('[data-del]'), day = e.target.closest('[data-day]'), mo = e.target.closest('[data-month]');
@@ -1190,7 +1338,8 @@ let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() 
 
 // Auto-test des formules : ouvrir index.html?test
 if (location.search.includes('test')) {
-  const FIX = { jours: { '2026-10-01': { esp: 1000, cb: 500, glovoEsp: 999, glovoLigne: 200, creditClient: 100, creditPaye: 50, versement: 800 } },
+  const FIX = { jours: { '2026-10-01': { esp: 1000, cb: 500, glovoEsp: 999, glovoLigne: 200, versement: 800 } },
+    clients: [{ nom: 'C1', solde0: 0 }], cops: [{ date: '2026-10-01', client: 'C1', type: 'Crédit', montant: 100 }, { date: '2026-10-01', client: 'C1', type: 'Remboursement', montant: 50, mode: 'Espèces' }],
     charges: [{ date: '2026-10-01', cat: 'Loyer', montant: 150, source: 'Caisse' }, { date: '2026-10-01', cat: 'Divers', montant: 300, source: 'Banque' },
       { date: '2026-10-01', cat: 'TVA', montant: 500, source: 'Banque' }],
     cats: ['Loyer', 'Divers'], catGrp: { Loyer: 'Logement', Divers: VAR }, params: { soldeInitial: 100 },
@@ -1208,6 +1357,13 @@ if (location.search.includes('test')) {
   // 10 € reçus et 4 € versés au taux de 10 : CA +100 DH, Reste +100 − 40, euros 50 + 10 − 4
   const E = ledger({ ...FIX, jours: { '2026-10-01': { ...FIX.jours['2026-10-01'], eur: 10, versEur: 4 } }, params: { ...FIX.params, taux: 10, euro: 50 } })[0];
   checks['Euros'] = E.caTTC === 2050 && E.reste === 260 && E.eurCaisse === 56;
+  // client : départ 200 + crédit 100 − remboursé 50 en espèces − 30 par banque = 220 ; seuls les 50 en espèces entrent en caisse
+  const CX = { ...DEF(), clients: [{ nom: 'C1', solde0: 200 }], cops: [{ date: '2026-10-01', client: 'C1', type: 'Crédit', montant: 100 },
+    { date: '2026-10-01', client: 'C1', type: 'Remboursement', montant: 50, mode: 'Espèces' }, { date: '2026-10-01', client: 'C1', type: 'Remboursement', montant: 30, mode: 'Banque' }] };
+  const [cx] = ledger(CX), cc = compteClient('C1', CX);
+  checks['Crédit client par nom'] = cc.solde === 220 && cx.credit === 220 && cx.recu === 50 && cx.creditPaye === 80 && cx.caTTC === 100;
+  const MG = { ...DEF(), jours: { '2026-09-01': { esp: 10, creditClient: 70, creditPaye: 20 } } }; migrateCredit(MG);
+  checks['Migration crédit sans nom'] = compteClient(SANS_NOM, MG).solde === 50 && !('creditClient' in MG.jours['2026-09-01']);
   const H = ledger({ ...FIX, params: { ...FIX.params, tvaVentes: 10 } })[0];   // ventes saisies TTC, CA suivi HT
   checks['CA HT'] = H.caTTC === 1950 && Math.abs(H.ca * 1.1 - 1950) < 1e-9 && Math.abs(H.ca + H.tvaCol - 1950) < 1e-9;
   const B = bilanRows(['2026-10']), bv = l => B.find(x => x.label === l).vals[0];
