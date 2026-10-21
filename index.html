@@ -112,6 +112,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
 .legend{display:flex;gap:16px;font-size:13px;color:var(--ink2);margin:-4px 0 8px}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
 #tip{position:fixed;pointer-events:none;background:var(--surface);border:1px solid var(--border);box-shadow:0 4px 16px rgba(0,0,0,.12);border-radius:8px;padding:8px 10px;font-size:13px;display:none;z-index:9}
 #tip .r{display:flex;align-items:center;gap:8px}#tip .r i{width:12px;height:2px}#tip .r b{font-variant-numeric:tabular-nums}
+#printArea{display:none}
 .rhead{display:none;align-items:flex-end;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:12px}
 .rhead h1{font-size:19px;line-height:1.1}.rhead .sub{color:var(--ink2);font-size:11px;margin-left:auto;text-align:right}
 .help{font-size:13.5px;color:var(--ink2)}
@@ -143,7 +144,13 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
   table{font-size:8.5px}th,td{padding:3px 4px}thead{display:table-header-group}
   .tw{overflow:visible}.pbreak{break-before:page}
   .x{visibility:hidden}
+  /* relevé de compte seul (bouton « Imprimer / PDF ») */
+  body.prt main{display:none!important}
+  body.prt #printArea{display:block;page:releve;font-size:12px}
+  body.prt #printArea .rhead{display:flex}body.prt #printArea table{font-size:11px}body.prt #printArea th,body.prt #printArea td{padding:5px 6px}
+  .rinfo{margin:0 0 12px;line-height:1.6}.rfin{font-size:16px;font-weight:700;margin-top:14px}
 }
+@page releve{size:A4 portrait;margin:14mm}
 </style>
 </head>
 <body>
@@ -335,6 +342,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
   </div>
 </section>
 </main>
+<div id="printArea"></div>
 </div>
 <div id="tip"></div>
 
@@ -783,7 +791,7 @@ const insList = o => o.length
   : '<p class="empty">Aucune vente saisie pour ce mois : les constats apparaîtront dès la première journée saisie.</p>';
 
 // ---------- pages ----------
-const state = { page: location.hash.slice(1), ym: today().slice(0, 7), date: today(), year: new Date().getFullYear(), four: null, client: null };
+const state = { page: location.hash.slice(1), ym: today().slice(0, 7), date: today(), year: new Date().getFullYear(), four: null, client: null, du: '', au: '' }; // du / au : période des relevés
 
 function dash() {
   const st = stats(state.ym), t = st.t, taux = +db.params.taux || 0;
@@ -931,23 +939,64 @@ function fournisseurs() {
   const c = db.fours.some(x => x.nom === state.four) && compte(state.four);
   $('#fDet').hidden = !c;
   if (!c) return;
-  $('#fDet').innerHTML = `<h2>Relevé de compte — ${esc(c.nom)}</h2><div class="big" style="font-size:26px;margin-bottom:12px">${sl(c.solde, c.nom)}</div>
+  const p = periode(c);
+  $('#fDet').innerHTML = `<h2>Relevé de compte — ${esc(c.nom)}</h2><div class="big" style="font-size:26px;margin-bottom:12px">${sl(p.close, c.nom)}${p.au < today() ? ` <small style="font-size:15px">au ${fd(p.au)}</small>` : ''}</div>
     <div class="flds noprint" style="margin-bottom:12px;max-width:440px">
       <label class="fld"><span>Téléphone</span><input data-fset="tel" value="${esc(c.tel)}"></label>
       <label class="fld"><span>Solde de départ (DH)</span><input data-fset="solde0" type="number" step="0.01" value="${c.solde0}"><small>dette déjà due avant la 1re facture saisie (− si c'est lui qui vous devait)</small></label></div>
-    <div class="tw"><table><thead><tr><th>Date</th><th class="t">Opération</th><th class="t">Référence</th><th>Facturé TTC</th><th>Payé / avoir</th><th>Solde</th><th></th></tr></thead><tbody>
-      <tr><td></td><td class="t">Solde de départ</td><td></td><td></td><td></td><td>${fmt(c.solde0)}</td><td></td></tr>` +
-      c.ops.map(o => `<tr><td>${fd(o.date)}</td><td class="t">${o.op}</td><td class="t">${esc(o.ref)}</td><td>${o.v > 0 ? fmt(o.v) : ''}</td><td>${o.v < 0 ? fmt(-o.v) : ''}</td><td>${fmt(o.solde)}</td><td><button class="x" data-${o.del}="${esc(o.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
-      `</tbody><tfoot><tr><td colspan="3">Total</td><td>${fmt(c.fact)}</td><td>${fmt(c.regl)}</td><td>${fmt(c.solde)}</td><td></td></tr></tfoot></table></div>
+    <div class="bar noprint" style="margin:0 0 10px">
+      <label class="tl">Du <input type="date" data-per="du" value="${p.du}" aria-label="Début de la période"></label>
+      <label class="tl">Au <input type="date" data-per="au" value="${p.au}" aria-label="Fin de la période"></label>
+      <button class="btn" data-releve="print" data-kind="fournisseur">Imprimer / PDF</button><button class="btn pri" data-releve="xlsx" data-kind="fournisseur">Télécharger Excel</button>
+    </div>
+    <div class="tw">${releveTable('fournisseur', p, true)}</div>
     <p class="help">Solde positif = vous devez au fournisseur · négatif = il vous doit.</p>` +
     (c.ops.length ? '' : `<button class="btn noprint" data-delfour="${esc(c.nom)}">Supprimer ce fournisseur</button>`);
+}
+
+// ---------- relevé de compte sur une période (fournisseur ou client), à l'écran, imprimé ou en Excel ----------
+const ENSEIGNE = 'Table M';
+const KIND = {
+  fournisseur: { titre: 'Relevé de compte fournisseur', qui: 'Fournisseur', ref: 'Référence', cols: ['Facturé TTC', 'Payé / avoir'],
+    solde: (s, n) => s > 0 ? `Solde dû à ${n} : ${fmt(s)} DH` : `Solde dû par ${n} : ${fmt(-s)} DH` },
+  client: { titre: 'Relevé de compte client', qui: 'Client', ref: 'Détail', cols: ['Crédit', 'Remboursé'],
+    solde: (s, n) => s > 0 ? `Solde dû par ${n} : ${fmt(s)} DH` : `Solde dû à ${n} (avance) : ${fmt(-s)} DH` },
+};
+// solde reporté au début de la période, opérations de la période avec le solde après chacune, solde final
+function periode(c, du = state.du || '', au = state.au || today()) {
+  const open = cent(c.solde0 + sumBy(c.ops.filter(o => o.date < du), o => o.v));
+  let s = open;
+  const ops = c.ops.filter(o => o.date >= du && o.date <= au).map(o => ({ ...o, solde: s = cent(s + o.v) }));
+  return { c, du, au, open, ops, close: s, deb: sumBy(ops, o => Math.max(0, o.v)), cred: -sumBy(ops, o => Math.min(0, o.v)) };
+}
+function releveTable(kind, p, del) {
+  const k = KIND[kind], x = del ? '<td></td>' : '';
+  return `<table><thead><tr><th>Date</th><th class="t">Opération</th><th class="t">${k.ref}</th><th>${k.cols[0]}</th><th>${k.cols[1]}</th><th>Solde</th>${del ? '<th></th>' : ''}</tr></thead><tbody>
+    <tr><td>${p.du ? fd(p.du) : ''}</td><td class="t">${p.du ? 'Solde reporté' : 'Solde de départ'}</td><td></td><td></td><td></td><td>${fmt(p.open)}</td>${x}</tr>` +
+    p.ops.map(o => `<tr><td>${fd(o.date)}</td><td class="t">${o.op}</td><td class="t">${esc(o.ref)}</td><td>${o.v > 0 ? fmt(o.v) : ''}</td><td>${o.v < 0 ? fmt(-o.v) : ''}</td><td>${fmt(o.solde)}</td>` +
+      (del ? `<td><button class="x" data-${o.del}="${esc(o.id)}" title="Supprimer" aria-label="Supprimer">×</button></td>` : '') + '</tr>').join('') +
+    `</tbody><tfoot><tr><td colspan="3">Total de la période</td><td>${fmt(p.deb)}</td><td>${fmt(p.cred)}</td><td>${fmt(p.close)}</td>${x}</tr></tfoot></table>`;
+}
+const slug = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'compte';
+function releveOut(kind, how) {
+  const nom = kind === 'client' ? state.client : state.four, p = periode(kind === 'client' ? compteClient(nom) : compte(nom)), k = KIND[kind];
+  const per = `${p.du ? 'du ' + fd(p.du) : 'depuis le début'} au ${fd(p.au)}`, fin = p.close ? k.solde(p.close, nom) : 'Compte soldé';
+  if (how === 'xlsx') return download(`releve-${kind}-${slug(nom)}-${p.au}.xlsx`, [['Relevé', [[`${ENSEIGNE} — ${k.titre}`], [k.qui, nom], ['Téléphone', p.c.tel], ['Période', per], ['Édité le', fd(today())], [],
+    ['Date', 'Opération', k.ref, ...k.cols, 'Solde'], [p.du ? fd(p.du) : '', p.du ? 'Solde reporté' : 'Solde de départ', '', '', '', p.open],
+    ...p.ops.map(o => [fd(o.date), o.op, o.ref || '', o.v > 0 ? o.v : '', o.v < 0 ? -o.v : '', o.solde]), ['Total de la période', '', '', p.deb, p.cred, p.close], [], [fin]], [12, 36, 24, 14, 14, 14]]]);
+  // impression : seul le relevé sort, sur une page A4 en portrait (« Enregistrer en PDF » pour l'envoyer)
+  $('#printArea').innerHTML = `<div class="rhead"><h1>${ENSEIGNE} — ${k.titre}</h1><div class="sub">Édité le ${fd(today())}</div></div>
+    <p class="rinfo"><b>${k.qui} : ${esc(nom)}</b>${p.c.tel ? ' · Tél. ' + esc(p.c.tel) : ''}<br>Période : ${per}</p>${releveTable(kind, p, false)}<p class="rfin">${esc(fin)}</p>`;
+  document.body.classList.add('prt');
+  addEventListener('afterprint', () => document.body.classList.remove('prt'), { once: true });
+  print();
 }
 
 // Compte client : solde > 0 = le client vous doit, < 0 = vous lui devez (il a payé d'avance)
 function compteClient(nom, d = db, upTo = '9999') {
   const c = d.clients.find(x => x.nom === nom) || {}, solde0 = +c.solde0 || 0;
   const ops = d.cops.filter(o => o.client === nom && o.date <= upTo).map(o => ({ ...o, v: o.type === 'Crédit' ? +o.montant || 0 : -(+o.montant || 0),
-    op: o.type === 'Crédit' ? 'Vente à crédit' : o.mode === 'Banque' ? 'Remboursement banque' : 'Remboursement espèces' })).sort((a, b) => a.date.localeCompare(b.date));
+    op: o.type === 'Crédit' ? 'Vente à crédit' : o.mode === 'Banque' ? 'Remboursement banque' : 'Remboursement espèces', ref: o.note, del: 'delcop' })).sort((a, b) => a.date.localeCompare(b.date));
   let solde = solde0;
   for (const o of ops) o.solde = solde = cent(solde + o.v);
   return { nom, tel: c.tel || '', solde0, ops, solde, cred: sumBy(ops, o => Math.max(0, o.v)), remb: -sumBy(ops, o => Math.min(0, o.v)) };
@@ -980,14 +1029,17 @@ function clients() {
   const c = db.clients.some(x => x.nom === state.client) && compteClient(state.client);
   $('#clDet').hidden = !c;
   if (!c) return;
-  $('#clDet').innerHTML = `<h2>Relevé de compte — ${esc(c.nom)}</h2><div class="big" style="font-size:26px;margin-bottom:12px">${slC(c.solde, c.nom)}</div>
+  const p = periode(c);
+  $('#clDet').innerHTML = `<h2>Relevé de compte — ${esc(c.nom)}</h2><div class="big" style="font-size:26px;margin-bottom:12px">${slC(p.close, c.nom)}${p.au < today() ? ` <small style="font-size:15px">au ${fd(p.au)}</small>` : ''}</div>
     <div class="flds noprint" style="margin-bottom:12px;max-width:440px">
       <label class="fld"><span>Téléphone</span><input data-cset="tel" value="${esc(c.tel)}"></label>
       <label class="fld"><span>Solde de départ (DH)</span><input data-cset="solde0" type="number" step="0.01" value="${c.solde0}"><small>ce qu'il devait déjà avant la 1re opération saisie (− si c'est vous qui lui deviez)</small></label></div>
-    <div class="tw"><table><thead><tr><th>Date</th><th class="t">Opération</th><th class="t">Détail</th><th>Crédit</th><th>Remboursé</th><th>Solde</th><th></th></tr></thead><tbody>
-      <tr><td></td><td class="t">Solde de départ</td><td></td><td></td><td></td><td>${fmt(c.solde0)}</td><td></td></tr>` +
-      c.ops.map(o => `<tr><td>${fd(o.date)}</td><td class="t">${o.op}</td><td class="t">${esc(o.note)}</td><td>${o.v > 0 ? fmt(o.v) : ''}</td><td>${o.v < 0 ? fmt(-o.v) : ''}</td><td>${fmt(o.solde)}</td><td><button class="x" data-delcop="${esc(o.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
-      `</tbody><tfoot><tr><td colspan="3">Total</td><td>${fmt(c.cred)}</td><td>${fmt(c.remb)}</td><td>${fmt(c.solde)}</td><td></td></tr></tfoot></table></div>
+    <div class="bar noprint" style="margin:0 0 10px">
+      <label class="tl">Du <input type="date" data-per="du" value="${p.du}" aria-label="Début de la période"></label>
+      <label class="tl">Au <input type="date" data-per="au" value="${p.au}" aria-label="Fin de la période"></label>
+      <button class="btn" data-releve="print" data-kind="client">Imprimer / PDF</button><button class="btn pri" data-releve="xlsx" data-kind="client">Télécharger Excel</button>
+    </div>
+    <div class="tw">${releveTable('client', p, true)}</div>
     <p class="help">Solde positif = le client vous doit · négatif = vous lui devez.</p>` +
     (c.ops.length ? '' : `<button class="btn noprint" data-delclient="${esc(c.nom)}">Supprimer ce client</button>`);
 }
@@ -1284,6 +1336,8 @@ document.addEventListener('change', e => {
     if (n) { state.client = n; if (state.page === 'clients') clients(); }
   }
   if (e.target.form?.matches('.fClient') && e.target.name === 'type') e.target.form.mode.hidden = e.target.value === 'Crédit';
+  const per = e.target.dataset?.per;
+  if (per) { state[per] = e.target.value; render(); }
   const kc = e.target.dataset?.cset, cl = kc && db.clients.find(x => x.nom === state.client);
   if (cl) { cl[kc] = kc === 'tel' ? e.target.value.trim() : num(e.target.value); save(); render(); }
 });
@@ -1348,6 +1402,8 @@ document.addEventListener('click', e => {
   if (pay) { if (confirm(`Supprimer le paiement de ${fmt(pay.montant)} DH à ${pay.four} du ${fd(pay.date)} ?`)) { db.paiements = db.paiements.filter(x => x !== pay); save(); render(); } return; }
   const df = e.target.closest('[data-delfour]');
   if (df) { if (confirm(`Supprimer le fournisseur « ${df.dataset.delfour} » ?`)) { db.fours = db.fours.filter(x => x.nom !== df.dataset.delfour); state.four = null; save(); render(); } return; }
+  const rl = e.target.closest('[data-releve]');
+  if (rl) return releveOut(rl.dataset.kind, rl.dataset.releve);
   const dco = e.target.closest('[data-delcop]'), cop = dco && db.cops.find(x => x.id === dco.dataset.delcop);
   if (cop) { if (confirm(`Supprimer « ${cop.type === 'Crédit' ? 'vente à crédit' : 'remboursement'} » de ${fmt(cop.montant)} DH pour ${cop.client} du ${fd(cop.date)} ?`)) { db.cops = db.cops.filter(x => x !== cop); save(); render(); } return; }
   const dcl = e.target.closest('[data-delclient]');
@@ -1387,6 +1443,9 @@ if (location.search.includes('test')) {
   // 10 € reçus et 4 € versés au taux de 10 : CA +100 DH, Reste +100 − 40, euros 50 + 10 − 4
   const E = ledger({ ...FIX, jours: { '2026-10-01': { ...FIX.jours['2026-10-01'], eur: 10, versEur: 4 } }, params: { ...FIX.params, taux: 10, euro: 50 } })[0];
   checks['Euros'] = E.caTTC === 2050 && E.reste === 260 && E.eurCaisse === 56;
+  // relevé de février : 100 + 50 (janvier) reportés, −30 en février, mars exclu
+  const PR = periode({ solde0: 100, ops: [{ date: '2026-01-05', v: 50 }, { date: '2026-02-01', v: -30 }, { date: '2026-03-01', v: 20 }] }, '2026-02-01', '2026-02-28');
+  checks['Relevé par période'] = PR.open === 150 && PR.ops.length === 1 && PR.close === 120 && PR.cred === 30 && PR.deb === 0;
   // client : départ 200 + crédit 100 − remboursé 50 en espèces − 30 par banque = 220 ; seuls les 50 en espèces entrent en caisse
   const CX = { ...DEF(), clients: [{ nom: 'C1', solde0: 200 }], cops: [{ date: '2026-10-01', client: 'C1', type: 'Crédit', montant: 100 },
     { date: '2026-10-01', client: 'C1', type: 'Remboursement', montant: 50, mode: 'Espèces' }, { date: '2026-10-01', client: 'C1', type: 'Remboursement', montant: 30, mode: 'Banque' }] };
