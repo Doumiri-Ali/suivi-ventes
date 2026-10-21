@@ -219,6 +219,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
 
 <section id="p-charges" class="page" hidden>
   <div class="bar"><h1>Charges</h1><input type="month" class="ym" aria-label="Mois"></div>
+  <div class="kpis" id="chTiles"></div>
   <div class="card"><h2>Ajouter une charge</h2>
     <form class="fCharge addc wd">
       <input type="date" name="date" required aria-label="Date">
@@ -230,15 +231,13 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
     </form>
     <p class="help" style="margin:0">« Caisse » = payé avec l'argent de la caisse (compté dans la colonne <b>Dépense</b> du jour). « Banque » = payé par virement / chèque. Les achats à crédit (factures fournisseurs) se saisissent dans l'onglet <b>Fournisseurs</b>.</p>
   </div>
-  <div class="grid2" style="margin-bottom:16px">
-    <div class="card"><h2>Total du mois</h2><div id="chTot"></div></div>
-    <div class="card"><h2>Par catégorie</h2><div id="chCat"></div></div>
-  </div>
+  <div class="card"><h2>Par catégorie</h2><div id="chCat"></div></div>
   <div class="card"><h2>Liste des charges</h2><div class="tw" id="chList"></div></div>
 </section>
 
 <section id="p-caisse" class="page" hidden>
   <div class="bar"><h1>Caisse</h1><input type="month" class="ym" aria-label="Mois"></div>
+  <div class="kpis" id="cTiles"></div>
   <div class="card"><h2>Sortie ou entrée d'argent</h2>
     <form id="fMvt" class="addc mv" autocomplete="off">
       <input type="date" name="date" required aria-label="Date">
@@ -250,7 +249,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
     <p class="help" style="margin:0">Une sortie (argent pris dans la caisse, pour n'importe quelle raison) ou une entrée (argent remis) change seulement l'argent en caisse : le chiffre d'affaires et les charges ne bougent pas. Continuez à saisir l'Espèce du jour normalement.</p>
   </div>
   <div class="grid2">
-    <div class="card"><h2>Argent en caisse</h2><div id="cTot"></div></div>
+    <div class="card"><h2>Calcul du mois</h2><div id="cTot"></div></div>
     <div class="card"><h2>Entrées et sorties du mois</h2><div class="tw" id="cList"></div></div>
   </div>
 </section>
@@ -513,7 +512,7 @@ function demoData() {
       let rembEsp = 0;
       if (rnd() < .3) { const c = pick(d.clients).nom, m = r(.07); bal[c] = (bal[c] || 0) + m;
         d.cops.push({ id: uid(), date: iso, client: c, type: 'Crédit', montant: m, mode: '', note: pick(['Déjeuner équipe', 'Repas', 'Commande à emporter', 'Plateaux repas', '']) }); }
-      const dus = d.clients.filter(c => (bal[c.nom] || 0) > 200);
+      const dus = d.clients.filter(c => (bal[c.nom] || 0) > 200 && !(c.nom === 'Équipe du chantier voisin' && iso.slice(5) > '09-10')); // ce client ne rembourse plus : à relancer
       if (dus.length && rnd() < .25) { const c = pick(dus).nom, m = Math.round(bal[c] * (.5 + rnd() * .5) / 10) * 10, mode = rnd() < .8 ? 'Espèces' : 'Banque';
         bal[c] -= m; if (mode === 'Espèces') rembEsp += m; d.cops.push({ id: uid(), date: iso, client: c, type: 'Remboursement', montant: m, mode, note: '' }); }
       cash += j.esp + rembEsp + ((j.eur || 0) - (j.versEur || 0)) * d.params.taux;
@@ -857,12 +856,20 @@ function charges() {
   if (!f.date.value.startsWith(state.ym)) f.date.value = today().startsWith(state.ym) ? today() : state.ym + '-01';
   const list = db.charges.filter(c => c.date.startsWith(state.ym)).sort((a, b) => b.date.localeCompare(a.date));
   const ch = list.filter(isCharge), by = s => sumBy(ch.filter(c => c.source === s), c => +c.montant), fac = by('Fournisseur');
-  const tva = sumBy(list.filter(c => !isCharge(c)), c => +c.montant);
-  $('#chTot').innerHTML = `<div class="big">${fmt(sumBy(ch, c => +c.montant))} <small style="font-size:16px">DH</small></div>` +
-    kv('Payé en caisse', fmt(by('Caisse'))) + kv('Payé par banque', fmt(by('Banque'))) +
-    (fac ? kv('Factures fournisseurs HT (à crédit)', fmt(fac), 'payées ou non : voir l\'onglet Fournisseurs') : '') + kv('Nombre de charges', ch.length) +
-    (tva ? kv('TVA payée à la DGI', fmt(tva), 'pas une charge : voir la partie TVA du bilan') : '');
-  $('#chCat').innerHTML = hbars(chargesByCat(state.ym));
+  const tva = sumBy(list.filter(c => !isCharge(c)), c => +c.montant), tot = sumBy(ch, c => +c.montant), n = s => ch.filter(c => c.source === s).length;
+  // mois en cours : on compare à la même période du mois précédent (1er → même quantième)
+  const pm = prevYm(state.ym), cut = state.ym === today().slice(0, 7) ? today().slice(8) : '31', per = cut < '31' ? `1–${+cut} ` : '';
+  const totP = sumBy(db.charges.filter(c => c.date.startsWith(pm) && c.date.slice(8) <= cut && isCharge(c)), c => +c.montant), d = totP ? (tot - totP) / totP * 100 : null;
+  const ca = totals(monthRows(ledger(), state.ym)).ca, cats = chargesByCat(state.ym).sort((a, b) => b[1] - a[1]);
+  // plus de charges = mauvais signe : flèche ▲ en rouge
+  $('#chTiles').innerHTML = kpi('Charges — ' + mName(state.ym), fmt(tot) + ' DH',
+      (d == null ? `${ch.length} charge(s)` : `<span class="dc ${d > 0 ? 'dn' : 'up'}">${d >= 0 ? '▲' : '▼'} ${pct(Math.abs(d))}</span> vs ${per}${mName(pm)} (${fmt(totP)} DH)`) + (ca ? ` · ${pct(tot / ca * 100)} du CA HT` : ''), 'lead') +
+    kpi('Payé en caisse', fmt(by('Caisse')), `${n('Caisse')} dépense(s) · colonne Dépense du jour`) +
+    kpi('Payé par banque', fmt(by('Banque')), `${n('Banque')} charge(s)`) +
+    kpi('Factures fournisseurs HT', fmt(fac), `${n('Fournisseur')} facture(s) ou avoir(s) · onglet Fournisseurs`) +
+    kpi('Premier poste', cats[0] ? fmt(cats[0][1]) : '—', cats[0] ? `${esc(cats[0][0])} · ${pct(cats[0][1] / tot * 100)} des charges` : 'aucune charge') +
+    (tva ? kpi('TVA payée à la DGI', fmt(tva), 'pas une charge : partie TVA du bilan') : '');
+  $('#chCat').innerHTML = hbars(cats);
   $('#chList').innerHTML = list.length ? chargeTable(list, true) : '<p class="empty">Aucune charge pour ' + mName(state.ym) + '.</p>';
 }
 
@@ -871,10 +878,17 @@ function caisse() {
   if (!f.date.value.startsWith(ym)) f.date.value = today().startsWith(ym) ? today() : ym + '-01';
   const L = ledger(), t = totals(monthRows(L, ym)), last = daysOf(ym).at(-1);
   const list = db.mvts.filter(m => m.date.startsWith(ym)).sort((a, b) => b.date.localeCompare(a.date));
-  $('#cTot').innerHTML = `<div class="tl">${ym === today().slice(0, 7) ? 'Maintenant' : 'Au ' + fd(last)}</div><div class="big">${fmt(at(L, last).reste)} <small style="font-size:16px">DH</small></div>` +
-    kv('Reste au début du mois', fmt(at(L, addDays(ym + '-01', -1)).reste)) + kv('+ Reçu par ' + RESP, fmt(t.recu), 'Espèce + Euros (en DH) + Crédit payé') +
+  const fin = at(L, last), taux = +db.params.taux || 0, so = list.filter(m => m.type !== 'Entrée'), en = list.filter(m => m.type === 'Entrée');
+  const motifs = Object.entries(so.reduce((o, m) => (o[m.motif || 'Sans motif'] = (o[m.motif || 'Sans motif'] || 0) + +m.montant, o), {})).sort((a, b) => b[1] - a[1]);
+  $('#cTiles').innerHTML = kpi(ym === today().slice(0, 7) ? 'Argent en caisse maintenant' : 'Argent en caisse au ' + fd(last), fmt(fin.reste) + ' DH',
+      fin.eur ? `dont ${fmt(fin.eur)} € (${fmt(fin.eur * taux)} DH)` : 'tout en dirhams', 'lead') +
+    kpi('Sorties — ' + mName(ym), fmt(t.sortie), `${so.length} sortie(s)` + (motifs[0] ? ` · surtout « ${esc(motifs[0][0])} » (${fmt(motifs[0][1])})` : '')) +
+    kpi('Entrées — ' + mName(ym), fmt(t.entree), `${en.length} entrée(s)`) +
+    kpi('Versé à la banque — ' + mName(ym), fmt(t.versement + t.versEurDh), t.versEur ? `dont ${fmt(t.versEur)} € (${fmt(t.versEurDh)} DH)` : 'dirhams') +
+    kpi('Reçu en caisse — ' + mName(ym), fmt(t.recu), 'espèces + euros + crédits remboursés en espèces');
+  $('#cTot').innerHTML = kv('Reste au début du mois', fmt(at(L, addDays(ym + '-01', -1)).reste)) + kv('+ Reçu par ' + RESP, fmt(t.recu), 'Espèce + Euros (en DH) + Crédit payé') +
     kv('− Versements à la banque', fmt(t.versement + t.versEurDh), t.versEur ? `dont ${fmt(t.versEur)} € (${fmt(t.versEurDh)} DH)` : '') + kv('+ Entrées', fmt(t.entree)) + kv('− Sorties', fmt(t.sortie)) +
-    kv('Dont euros en caisse', fmt(at(L, last).eur) + ' €', `= ${fmt(at(L, last).eur * (+db.params.taux || 0))} DH`);
+    kv('<b>= Argent en caisse</b>', `<b>${fmt(fin.reste)}</b>`, fin.eur ? `dont ${fmt(fin.eur)} € (${fmt(fin.eur * taux)} DH)` : '');
   $('#cList').innerHTML = !list.length ? '<p class="empty">Aucune entrée ni sortie pour ' + mName(ym) + '.</p>'
     : `<table><thead><tr><th>Date</th><th class="t">Type</th><th class="t">Motif</th><th>Montant</th><th></th></tr></thead><tbody>` +
       list.map(m => `<tr><td>${fd(m.date)}</td><td class="t">${esc(m.type)}</td><td class="t">${esc(m.motif)}</td><td>${signed(m.type === 'Entrée' ? m.montant : -m.montant)}</td><td><button class="x" data-delmv="${esc(m.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') + '</tbody></table>';
@@ -899,8 +913,16 @@ function fournisseurs() {
   const f = $('#fOp').elements;
   if (!f.date.value) f.date.value = today();
   const C = db.fours.map(x => compte(x.nom)).sort((a, b) => b.solde - a.solde), du = C.filter(c => c.solde > 0), doit = C.filter(c => c.solde < 0);
-  $('#fTiles').innerHTML = kpi('Vous devez aux fournisseurs', fmt(sumBy(du, c => c.solde)), `${du.length} fournisseur(s) à payer`, 'lead') +
-    kpi('Les fournisseurs vous doivent', fmt(-sumBy(doit, c => c.solde)), 'avances ou avoirs pas encore utilisés') + kpi('Fournisseurs', C.length, '');
+  // chiffres du mois en cours (les soldes, eux, comptent tout l'historique)
+  const ym = today().slice(0, 7), mois = mName(ym), dette = sumBy(du, c => c.solde);
+  const fac = db.charges.filter(c => c.source === 'Fournisseur' && c.montant > 0 && c.date.startsWith(ym)), pays = db.paiements.filter(p => p.date.startsWith(ym));
+  const payEsp = sumBy(pays.filter(p => p.mode === 'Caisse'), p => +p.montant);
+  $('#fTiles').innerHTML = kpi('Vous devez aux fournisseurs', fmt(dette), `${du.length} fournisseur(s) à payer`, 'lead') +
+    kpi('Les fournisseurs vous doivent', fmt(-sumBy(doit, c => c.solde)), 'avances ou avoirs pas encore utilisés') +
+    kpi('Achats HT — ' + mois, fmt(sumBy(fac, c => +c.montant)), `${fac.length} facture(s) · ${fmt(sumBy(fac, c => c.montant * (1 + (+c.tva || 0) / 100)))} TTC`) +
+    kpi('Payé aux fournisseurs — ' + mois, fmt(sumBy(pays, p => +p.montant)), `${pays.length} paiement(s)` + (payEsp ? ` · dont ${fmt(payEsp)} en espèces` : '')) +
+    kpi('Plus grosse dette', du[0] ? fmt(du[0].solde) : '—', du[0] ? `${esc(du[0].nom)} · ${pct(du[0].solde / dette * 100)} du total` : 'aucune dette') +
+    kpi('Fournisseurs', C.length, `${du.length} à payer · ${doit.length} vous doivent`);
   const money = v => v ? fmt(v) : '';
   $('#fEtat').innerHTML = !C.length ? '<p class="empty">Aucun fournisseur : choisissez « ➕ Nouveau fournisseur… » dans la liste ci-dessus.</p>'
     : `<table><thead><tr><th>Fournisseur</th><th class="t">Téléphone</th><th>Solde de départ</th><th>Facturé TTC</th><th>Payé + avoirs</th><th>Vous devez</th><th>Il vous doit</th></tr></thead><tbody>` +
@@ -940,8 +962,16 @@ function clients() {
   const f = document.querySelector('#p-clients .fClient').elements;
   if (!f.date.value) f.date.value = today();
   const C = db.clients.map(x => compteClient(x.nom)).sort((a, b) => b.solde - a.solde), doit = C.filter(c => c.solde > 0), av = C.filter(c => c.solde < 0);
-  $('#clTiles').innerHTML = kpi('Les clients vous doivent', fmt(sumBy(doit, c => c.solde)), `${doit.length} client(s) à relancer`, 'lead') +
-    kpi('Vous devez aux clients', fmt(-sumBy(av, c => c.solde)), 'avances payées par des clients') + kpi('Clients', C.length, '');
+  // chiffres du mois en cours ; « à relancer » = doit encore et n'a rien remboursé depuis 30 jours
+  const ym = today().slice(0, 7), mois = mName(ym), ops = db.cops.filter(o => o.date.startsWith(ym));
+  const cr = ops.filter(o => o.type === 'Crédit'), rb = ops.filter(o => o.type !== 'Crédit'), lim = addDays(today(), -30);
+  const relance = doit.filter(c => !c.ops.some(o => o.v < 0 && o.date >= lim)), rbEsp = sumBy(rb.filter(o => o.mode !== 'Banque'), o => +o.montant);
+  $('#clTiles').innerHTML = kpi('Les clients vous doivent', fmt(sumBy(doit, c => c.solde)), `${doit.length} client(s) avec un solde dû`, 'lead') +
+    kpi('Vous devez aux clients', fmt(-sumBy(av, c => c.solde)), 'avances payées par des clients') +
+    kpi('Crédit accordé — ' + mois, fmt(sumBy(cr, o => +o.montant)), `${cr.length} vente(s) à crédit`) +
+    kpi('Remboursé — ' + mois, fmt(sumBy(rb, o => +o.montant)), `${rb.length} remboursement(s)` + (rbEsp ? ` · dont ${fmt(rbEsp)} en espèces` : '')) +
+    kpi('À relancer', relance.length, relance.length ? `${fmt(sumBy(relance, c => c.solde))} DH dus, rien remboursé depuis 30 jours : ${relance.slice(0, 3).map(c => esc(c.nom)).join(', ')}${relance.length > 3 ? '…' : ''}` : 'aucun retard de plus de 30 jours') +
+    kpi('Plus gros débiteur', doit[0] ? fmt(doit[0].solde) : '—', doit[0] ? `${esc(doit[0].nom)} · ${C.length} client(s) en tout` : `${C.length} client(s) en tout`);
   const money = v => v ? fmt(v) : '';
   $('#clEtat').innerHTML = !C.length ? '<p class="empty">Aucun client : choisissez « ➕ Nouveau client… » dans la liste ci-dessus.</p>'
     : `<table><thead><tr><th>Client</th><th class="t">Téléphone</th><th>Solde de départ</th><th>Crédit accordé</th><th>Remboursé</th><th>Il vous doit</th><th>Vous lui devez</th></tr></thead><tbody>` +
