@@ -70,7 +70,7 @@ h1{font-size:22px;margin:0}h2{font-size:15px;margin:0 0 12px;color:var(--ink2);f
 .sbl em{font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink2)}
 .sbl b{margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
 .sbl small{color:var(--muted);font-variant-numeric:tabular-nums;width:72px;text-align:right}
-.good{color:var(--good)}.bad{color:var(--bad)}
+a{color:var(--s1)}.good{color:var(--good)}.bad{color:var(--bad)}
 input,select,button,textarea{font:inherit;color:var(--ink)}
 input,select,textarea{background:var(--field);border:1px solid var(--axis);border-radius:8px;padding:8px 10px;min-width:0}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--s1);outline-offset:-1px;border-color:transparent}
@@ -92,7 +92,7 @@ fieldset{border:0;padding:0;margin:0 0 18px}legend{font-weight:600;margin-bottom
 .kv b{font-variant-numeric:tabular-nums}.kv small{display:block;color:var(--muted);font-size:11.5px}
 .addc{display:grid;grid-template-columns:1.2fr 1.5fr 1fr .8fr .9fr auto;gap:8px;margin-bottom:12px}
 .addc.wd{grid-template-columns:auto 1.2fr 1.5fr 1fr .8fr .9fr auto}
-.addc.mv{grid-template-columns:auto auto 1.6fr 1fr auto}
+.addc.mv{grid-template-columns:auto auto 1.2fr 1.4fr 1fr auto}
 .addf{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:12px}
 .tw{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
@@ -258,15 +258,26 @@ dialog::backdrop{background:rgba(0,0,0,.45)}dialog p{margin:0 0 10px;font-size:1
     <form id="fMvt" class="addc mv" autocomplete="off">
       <input type="date" name="date" required aria-label="Date">
       <select name="type" aria-label="Type"><option>Sortie</option><option>Entrée</option></select>
+      <input name="benef" list="benefs" placeholder="À qui (ex : Patron, Youssef)" aria-label="À qui">
       <input name="motif" placeholder="Motif (ex : retrait personnel)">
       <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant DH" required>
       <button class="btn pri">Ajouter</button>
+      <datalist id="benefs"></datalist>
     </form>
     <p class="help" style="margin:0">Une sortie (argent pris dans la caisse, pour n'importe quelle raison) ou une entrée (argent remis) change seulement l'argent en caisse : le chiffre d'affaires et les charges ne bougent pas. Continuez à saisir l'Espèce du jour normalement.</p>
   </div>
   <div class="grid2">
     <div class="card"><h2>Calcul du mois</h2><div id="cTot"></div></div>
     <div class="card"><h2>Entrées et sorties du mois</h2><div class="tw" id="cList"></div></div>
+  </div>
+  <div class="card"><h2>Qui a reçu l'argent de la caisse</h2>
+    <div class="bar noprint" style="margin:0 0 10px">
+      <label class="tl">Du <input type="date" id="qDu" aria-label="Début de la période"></label>
+      <label class="tl">Au <input type="date" id="qAu" aria-label="Fin de la période"></label>
+      <select id="qType" aria-label="Type de sortie"><option value="">Toutes les sorties</option><option value="Sortie">Sorties (à qui)</option><option value="Dépense">Dépenses payées en caisse</option><option value="Fournisseur">Fournisseurs payés en espèces</option><option value="Versement">Versements à la banque</option></select>
+      <select id="qQui" aria-label="Bénéficiaire"></select>
+    </div>
+    <div class="tw" id="qList"></div>
   </div>
 </section>
 
@@ -588,7 +599,8 @@ function demoData() {
       if (day === 15) pay(iso, 'Grossiste Boissons', owed['Grossiste Boissons'] * .85, 'Banque', 'Virement');
       if (day === 20) pay(iso, 'Fromagerie du Centre', owed['Fromagerie du Centre'] * .75, 'Banque', 'Chèque');
       // caisse : retraits du patron, parfois un apport
-      if (rnd() < .1) { const m = 500 * Math.ceil(rnd() * 5); cash -= m; d.mvts.push({ id: uid(), date: iso, type: 'Sortie', montant: m, motif: pick(['Retrait personnel', 'Retrait personnel', 'Courses maison', 'Avance salaire serveur', 'Essence voiture']) }); }
+      if (rnd() < .1) { const m = 500 * Math.ceil(rnd() * 5); cash -= m; const [benef, motif] = pick([['Patron', 'Retrait personnel'], ['Patron', 'Retrait personnel'], ['Patron', 'Courses maison'], ['Youssef (serveur)', 'Avance sur salaire'], ['Rachid (cuisinier)', 'Avance sur salaire'], ['Patron', 'Essence voiture']]);
+        d.mvts.push({ id: uid(), date: iso, type: 'Sortie', montant: m, motif, benef }); }
       if (rnd() < .02) { cash += 1000; d.mvts.push({ id: uid(), date: iso, type: 'Entrée', montant: 1000, motif: 'Apport pour la monnaie' }); }
     }
     const cb = sumBy(Object.keys(d.jours).filter(k => k.startsWith(ym)), k => d.jours[k].cb);
@@ -979,8 +991,43 @@ function caisse() {
     kv('− Versements à la banque', fmt(t.versement + t.versEurDh), t.versEur ? `dont ${fmt(t.versEur)} € (${fmt(t.versEurDh)} DH)` : '') + kv('+ Entrées', fmt(t.entree)) + kv('− Sorties', fmt(t.sortie)) +
     kv('<b>= Argent en caisse</b>', `<b>${fmt(fin.reste)}</b>`, fin.eur ? `dont ${fmt(fin.eur)} € (${fmt(fin.eur * taux)} DH)` : '');
   $('#cList').innerHTML = !list.length ? '<p class="empty">Aucune entrée ni sortie pour ' + mName(ym) + '.</p>'
-    : `<table><thead><tr><th>Date</th><th class="t">Type</th><th class="t">Motif</th><th>Montant</th><th></th></tr></thead><tbody>` +
-      list.map(m => `<tr><td>${fd(m.date)}</td><td class="t">${esc(m.type)}</td><td class="t">${esc(m.motif)}</td><td>${signed(m.type === 'Entrée' ? m.montant : -m.montant)}</td><td><button class="x" data-delmv="${esc(m.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') + '</tbody></table>';
+    : `<table><thead><tr><th>Date</th><th class="t">Type</th><th class="t">À qui</th><th class="t">Motif</th><th>Montant</th><th></th></tr></thead><tbody>` +
+      list.map(m => `<tr><td>${fd(m.date)}</td><td class="t">${esc(m.type)}</td><td class="t">${esc(m.benef)}</td><td class="t">${esc(m.motif)}</td><td>${signed(m.type === 'Entrée' ? m.montant : -m.montant)}</td><td><button class="x" data-delmv="${esc(m.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') + '</tbody></table>';
+  $('#benefs').innerHTML = [...new Set(db.mvts.map(m => m.benef).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr')).map(n => `<option value="${esc(n)}">`).join('');
+  quiCard();
+}
+
+// ---------- argent sorti de la caisse, regroupé par bénéficiaire sur une période ----------
+// Sortie → « À qui » (sinon le motif) ; dépense payée en caisse → catégorie ; fournisseur payé en espèces → fournisseur ; versement → banque
+function sortiesCaisse(du, au, d = db) {
+  const ok = x => x >= du && x <= au, taux = +d.params.taux || 0, o = [];
+  for (const m of d.mvts) if (m.type !== 'Entrée' && ok(m.date)) o.push({ date: m.date, qui: m.benef || m.motif || 'Sans nom', type: 'Sortie', detail: m.motif || '', montant: +m.montant || 0 });
+  for (const c of d.charges) if (c.source === 'Caisse' && ok(c.date)) o.push({ date: c.date, qui: c.cat, type: 'Dépense', detail: c.lib || '', montant: ttcOf(c) });
+  for (const p of d.paiements) if (p.mode === 'Caisse' && ok(p.date)) o.push({ date: p.date, qui: p.four, type: 'Fournisseur', detail: 'Paiement' + (p.ref ? ' · ' + p.ref : ''), montant: +p.montant || 0 });
+  for (const [date, j] of Object.entries(d.jours)) { const v = (+j.versement || 0) + (+j.versEur || 0) * taux; if (v && ok(date)) o.push({ date, qui: 'Banque', type: 'Versement', detail: j.versEur ? `dont ${fmt(+j.versEur)} €` : '', montant: v }); }
+  return o.sort((a, b) => b.date.localeCompare(a.date));
+}
+const parQui = ops => Object.values(ops.reduce((g, x) => { const k = x.type + '|' + x.qui.toLowerCase(); (g[k] ??= { qui: x.qui, type: x.type, n: 0, total: 0 }); g[k].n++; g[k].total += x.montant; return g; }, {}))
+  .sort((a, b) => b.total - a.total);
+function quiCard() {
+  const ym = state.ym, du = state.qDu || ym + '-01', au = state.qAu || daysOf(ym).at(-1), ty = state.qType || '';
+  $('#qDu').value = du; $('#qAu').value = au; $('#qType').value = ty;
+  const ops = sortiesCaisse(du, au).filter(x => !ty || x.type === ty), G = parQui(ops), tot = sumBy(ops, x => x.montant);
+  const sel = G.find(g => g.type + '|' + g.qui === state.qQui);
+  $('#qQui').innerHTML = '<option value="">Tous les bénéficiaires</option>' + G.map(g => `<option value="${esc(g.type + '|' + g.qui)}"${g === sel ? ' selected' : ''}>${esc(g.qui)} (${g.type.toLowerCase()})</option>`).join('');
+  const per = `du ${fd(du)} au ${fd(au)}`;
+  if (sel) {
+    const mine = ops.filter(x => x.type === sel.type && x.qui.toLowerCase() === sel.qui.toLowerCase());
+    $('#qList').innerHTML = `<p class="big" style="font-size:22px;margin:0 0 4px">${esc(sel.qui)} : ${fmt(sel.total)} DH</p><p class="help" style="margin:0 0 10px">${sel.n} fois ${per} · ${pct(sel.total / tot * 100)} de l'argent sorti de la caisse · <a href="#" data-qall>voir tous les bénéficiaires</a></p>` +
+      `<table><thead><tr><th>Date</th><th class="t">Type</th><th class="t">Détail</th><th>Montant</th></tr></thead><tbody>` +
+      mine.map(x => `<tr><td>${fd(x.date)}</td><td class="t">${x.type}</td><td class="t">${esc(x.detail)}</td><td>${fmt(x.montant)}</td></tr>`).join('') +
+      `</tbody><tfoot><tr><td colspan="3">Total ${per}</td><td>${fmt(sel.total)}</td></tr></tfoot></table>`;
+    return;
+  }
+  $('#qList').innerHTML = !G.length ? `<p class="empty">Aucune sortie de caisse ${per}.</p>`
+    : `<table><thead><tr><th class="t">Bénéficiaire</th><th class="t">Type</th><th>Nombre</th><th>Total</th><th>Part</th></tr></thead><tbody>` +
+      G.map(g => `<tr class="click" data-qui="${esc(g.type + '|' + g.qui)}"><td class="t">${esc(g.qui)}</td><td class="t">${g.type}</td><td>${g.n}</td><td>${fmt(g.total)}</td><td>${pct(g.total / tot * 100)}</td></tr>`).join('') +
+      `</tbody><tfoot><tr><td colspan="3">Total sorti de la caisse ${per}</td><td>${fmt(tot)}</td><td></td></tr></tfoot></table><p class="help">Cliquez un bénéficiaire pour voir le détail.</p>`;
 }
 
 // Compte fournisseur : solde > 0 = vous lui devez, < 0 = il vous doit.
@@ -1321,7 +1368,7 @@ function toWorkbook() {
     ['Clients', [['Nom', 'Téléphone', 'Solde de départ', 'Solde actuel'], ...db.clients.map(c => [c.nom, c.tel, c.solde0, compteClient(c.nom).solde])], [26, 16, 14, 14]],
     ['Crédits clients', [['Date', 'Client', 'Type', 'Montant', 'Mode', 'Détail'], ...[...db.cops].sort((a, b) => a.date.localeCompare(b.date)).map(o => [o.date, o.client, o.type, o.montant, o.mode, o.note])], [12, 26, 14, 12, 10, 30]],
     ['Paiements', [['Date', 'Fournisseur', 'Montant', 'Mode', 'Référence'], ...[...db.paiements].sort((a, b) => a.date.localeCompare(b.date)).map(p => [p.date, p.four, p.montant, p.mode, p.ref])], [12, 26, 12, 10, 14]],
-    ['Caisse', [['Date', 'Type', 'Montant', 'Motif'], ...[...db.mvts].sort((a, b) => a.date.localeCompare(b.date)).map(m => [m.date, m.type, m.montant, m.motif])], [12, 10, 12, 30]],
+    ['Caisse', [['Date', 'Type', 'Montant', 'Motif', 'À qui'], ...[...db.mvts].sort((a, b) => a.date.localeCompare(b.date)).map(m => [m.date, m.type, m.montant, m.motif, m.benef || ''])], [12, 10, 12, 30, 20]],
     ['Catégories', [['Catégorie', 'Groupe'], ...db.cats.map(c => [c, grpOf(c)])], [34, 30]],
     ['Paramètres', [['Clé', 'Valeur'], ...Object.entries(db.params), ['savedAt', db.savedAt || 0], ['pwd', db.pwd || '']], [16, 14]],
     ['Calculs', [['Date', 'CA HT', 'CA TTC', 'Dépense caisse', 'Reçu', 'Versement', 'Entrée caisse', 'Sortie caisse', 'Reste', 'Crédit en cours', 'Euros en caisse (€)'], ...L.map(r => [r.date, r.ca, r.caTTC, r.dep, r.recu, r.versement, r.entree, r.sortie, r.reste, r.credit, r.eurCaisse])], [12, 12, 12, 14, 12, 12, 13, 13, 12, 14, 16]],
@@ -1349,7 +1396,7 @@ function fromWorkbook(wb) {
   for (const r of PA || []) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.paiements.push({ id: uid(), date: d, four: String(r.Fournisseur || '').trim(), montant: num(r.Montant), mode: r.Mode === 'Banque' ? 'Banque' : 'Caisse', ref: String(r['Référence'] || '') }); }
   nd.fours = (FO || []).map(r => ({ nom: String(r.Nom || '').trim(), tel: String(r['Téléphone'] || ''), solde0: num(r['Solde de départ']) })).filter(f => f.nom);
   for (const n of [...nd.charges.map(c => c.four), ...nd.paiements.map(p => p.four)]) if (n && !nd.fours.some(f => f.nom === n)) nd.fours.push({ nom: n, tel: '', solde0: 0 });
-  for (const r of M || []) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.mvts.push({ id: uid(), date: d, type: r.Type === 'Entrée' ? 'Entrée' : 'Sortie', montant: num(r.Montant), motif: String(r.Motif || '') }); }
+  for (const r of M || []) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.mvts.push({ id: uid(), date: d, type: r.Type === 'Entrée' ? 'Entrée' : 'Sortie', montant: num(r.Montant), motif: String(r.Motif || ''), benef: String(r['À qui'] || '') }); }
   const names = K ? [...new Set(K.map(r => String(r['Catégorie']).trim()).filter(Boolean))] : [];
   if ((XLSX.utils.sheet_to_json(wb.Sheets['Catégories'] || {}, { header: 1 })[0] || []).includes('Groupe')) { nd.cats = names; nd.catGrp = Object.fromEntries(K.map(r => [String(r['Catégorie']).trim(), String(r.Groupe)])); }
   else Object.assign(nd, migrateCats(names, nd.charges));
@@ -1448,7 +1495,7 @@ addEventListener('beforeunload', e => { if (draft) e.preventDefault(); });
 
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => go(b.dataset.p));
 document.addEventListener('change', async e => {
-  if (e.target.matches('.ym') && e.target.value) { state.ym = e.target.value; render(); }
+  if (e.target.matches('.ym') && e.target.value) { state.ym = e.target.value; state.qDu = state.qAu = state.qQui = ''; render(); }
   // modifier un paramètre enregistré : mot de passe (refusé → la valeur d'avant revient)
   const pk = e.target.dataset?.param;
   if (pk) { const v = num(e.target.value); if (await guard(`« ${PARAMS.find(x => x[0] === pk)[1]} » : ${fmt(db.params[pk])} → ${fmt(v)}`, 'Modifier', 'Modifier un réglage')) { db.params[pk] = v; save(); } return render(); }
@@ -1473,6 +1520,9 @@ document.addEventListener('change', async e => {
     if (n) { state.client = n; if (state.page === 'clients') clients(); }
   }
   if (e.target.form?.matches('.fClient') && e.target.name === 'type') e.target.form.mode.hidden = e.target.value === 'Crédit';
+  // caisse : qui a reçu l'argent (période, type, bénéficiaire)
+  const qk = { qDu: 'qDu', qAu: 'qAu', qType: 'qType', qQui: 'qQui' }[e.target.id];
+  if (qk) { state[qk] = e.target.value; if (qk !== 'qQui') state.qQui = ''; return quiCard(); }
   // bons de livraison : filtres et cases à cocher
   if (e.target.id === 'blFour' || e.target.id === 'blStat') { state[e.target.id] = e.target.value; return blCard(); }
   if (e.target.dataset?.blsel) { blSel[e.target.checked ? 'add' : 'delete'](e.target.dataset.blsel); return blCard(); }
@@ -1503,8 +1553,8 @@ $('#fMvt').onsubmit = e => {
   e.preventDefault();
   const f = e.target.elements, m = num(f.montant.value);
   if (!f.date.value || !(m > 0)) return alert('Indiquez une date et un montant supérieur à 0.');
-  db.mvts.push({ id: uid(), date: f.date.value, type: f.type.value, montant: m, motif: f.motif.value.trim() });
-  save(); f.motif.value = ''; f.montant.value = ''; render();
+  db.mvts.push({ id: uid(), date: f.date.value, type: f.type.value, montant: m, motif: f.motif.value.trim(), benef: f.benef.value.trim() });
+  save(); f.motif.value = ''; f.benef.value = ''; f.montant.value = ''; render();
 };
 $('#fOp').onsubmit = e => {
   e.preventDefault();
@@ -1569,6 +1619,9 @@ document.addEventListener('click', async e => {
   if (pay) { if (await guard(`Supprimer le paiement de ${fmt(pay.montant)} DH à ${pay.four} du ${fd(pay.date)} ?`)) { db.paiements = db.paiements.filter(x => x !== pay); save(); render(); } return; }
   const df = e.target.closest('[data-delfour]');
   if (df) { if (await guard(`Supprimer le fournisseur « ${df.dataset.delfour} » ?`)) { db.fours = db.fours.filter(x => x.nom !== df.dataset.delfour); state.four = null; save(); render(); } return; }
+  const qr = e.target.closest('[data-qui]');
+  if (qr) { state.qQui = qr.dataset.qui; return quiCard(); }
+  if (e.target.closest('[data-qall]')) { e.preventDefault(); state.qQui = ''; return quiCard(); }
   const fpr = e.target.closest('[data-facprint]');
   if (fpr) return facPrint(blFacs[+fpr.dataset.facprint]);
   const fun = e.target.closest('[data-facundo]'), F = fun && blFacs[+fun.dataset.facundo];
@@ -1632,6 +1685,11 @@ if (location.search.includes('test')) {
   const BX = { ...DEF(), fours: [{ nom: 'F2', solde0: 0 }], charges: [{ date: '2026-10-02', cat: 'Boucherie', montant: 100, tva: 20, source: 'Fournisseur', four: 'F2', bl: 1, fac: '' },
     { date: '2026-10-05', cat: 'Boucherie', montant: 50, tva: 0, source: 'Fournisseur', four: 'F2', bl: 1, fac: '' }] };
   const b0 = compte('F2', BX); BX.charges.forEach(c => { c.fac = 'F-1'; c.facDate = '2026-10-31'; }); const b1 = compte('F2', BX);
+  // qui a reçu l'argent : sorties « À qui », dépense caisse TTC, fournisseur payé en espèces, versement ; hors période exclu
+  const SX = { ...DEF(), mvts: [{ date: '2026-10-02', type: 'Sortie', montant: 200, benef: 'Karim' }, { date: '2026-10-09', type: 'Sortie', montant: 300, benef: 'karim' }, { date: '2026-11-01', type: 'Sortie', montant: 999, benef: 'Karim' }, { date: '2026-10-03', type: 'Entrée', montant: 50 }],
+    charges: [{ date: '2026-10-04', cat: 'Gaz', montant: 100, tva: 20, source: 'Caisse' }], paiements: [{ date: '2026-10-05', four: 'F1', montant: 80, mode: 'Caisse' }], jours: { '2026-10-06': { versement: 1000 } } };
+  const SG = parQui(sortiesCaisse('2026-10-01', '2026-10-31', SX)), sg = q => SG.find(g => g.qui.toLowerCase() === q)?.total;
+  checks['Qui a reçu la caisse'] = sg('karim') === 500 && sg('gaz') === 120 && sg('f1') === 80 && sg('banque') === 1000 && SG.length === 4;
   checks['Bons de livraison'] = b0.solde === 170 && b0.blTodo === 170 && b1.solde === 170 && b1.blTodo === 0 && sumBy(ledger(BX), x => x.charges) === 150;
   const H = ledger({ ...FIX, params: { ...FIX.params, tvaVentes: 10 } })[0];   // ventes saisies TTC, CA suivi HT
   checks['CA HT'] = H.caTTC === 1800 && Math.abs(H.ca * 1.1 - 1800) < 1e-9 && Math.abs(H.ca + H.tvaCol - 1800) < 1e-9;
