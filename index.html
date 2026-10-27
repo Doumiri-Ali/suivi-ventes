@@ -12,7 +12,7 @@
   --s1:#2a78d6;--s2:#eb6834;--good:#006300;--bad:#d03b3b;--wash:rgba(42,120,214,.08);color-scheme:only light;
   --c1:#2a78d6;--c2:#eb6834;--c3:#1baf7a;--c4:#eda100;--c5:#e87ba4;--c6:#008300}
 /* toujours en clair, même si l'ordinateur ou le téléphone est en mode sombre */
-*{box-sizing:border-box}
+*{box-sizing:border-box}[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
 /* barre latérale (menu) à gauche, pages à droite ; sur téléphone le menu redevient une barre en haut */
 body{display:flex;align-items:flex-start}
@@ -119,7 +119,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
 .jsave{display:flex;align-items:center;gap:12px;margin-top:16px}
 .unsaved{display:flex;align-items:center;justify-content:space-between;gap:8px;background:rgba(237,161,0,.14);border:1px solid rgba(237,161,0,.45);border-radius:8px;padding:6px 6px 6px 10px;margin-bottom:12px;font-size:13px}
 dialog{border:1px solid var(--border);border-radius:12px;padding:18px;background:var(--surface);color:var(--ink);width:min(360px,calc(100% - 32px))}
-dialog::backdrop{background:rgba(0,0,0,.35)}dialog p{margin:0 0 10px;font-size:14px}dialog input{width:100%;margin-bottom:14px}
+dialog::backdrop{background:rgba(0,0,0,.45)}dialog p{margin:0 0 10px;font-size:14px}dialog .fld{margin-bottom:10px}dialog .fld input{text-align:left}
+.dlgt{margin:0 0 8px;font-size:17px}.dlge{color:var(--bad);font-size:13px;min-height:1.2em;margin:0 0 8px}
 .dlgb{display:flex;gap:8px;justify-content:flex-end}
 .cg{margin-bottom:10px}.cg>b{display:block;font-size:13px;margin-bottom:6px}.cg small{color:var(--muted);font-weight:400}
 /* bilan « TABLE M » : mêmes blocs de couleur que la feuille du client */
@@ -343,14 +344,9 @@ dialog::backdrop{background:rgba(0,0,0,.35)}dialog p{margin:0 0 10px;font-size:1
     </div>
   </div>
   <div class="card" style="margin-top:16px"><h2>Mot de passe</h2>
-    <p class="help" id="pwdInfo" style="margin-top:0"></p>
-    <form id="fPwd" style="display:flex;flex-wrap:wrap;gap:8px;max-width:640px" autocomplete="off">
-      <input type="password" name="p1" placeholder="Nouveau mot de passe" autocomplete="new-password" required style="flex:1 1 180px" aria-label="Nouveau mot de passe">
-      <input type="password" name="p2" placeholder="Confirmer" autocomplete="new-password" required style="flex:1 1 180px" aria-label="Confirmer le mot de passe">
-      <button class="btn pri">Enregistrer</button>
-    </form>
-    <button class="btn" id="pwdOff" style="margin-top:8px">Supprimer le mot de passe</button>
-    <p class="help">Il protège contre les erreurs et les modifications par le personnel. Oublié ? Effacez la ligne « pwd » de la feuille Paramètres du fichier Excel.</p>
+    <p class="help" style="margin-top:0">Il est demandé à chaque suppression et à chaque modification d'une saisie déjà enregistrée (journée, réglages, comptes, catégories, restauration d'une copie).</p>
+    <button class="btn" id="pwdChange">Changer le mot de passe</button>
+    <p class="help">Il protège contre les erreurs et les modifications par le personnel. Oublié ? Effacez la valeur de la ligne « pwd » dans la feuille Paramètres du fichier Excel : un nouveau mot de passe sera demandé au prochain démarrage.</p>
   </div>
   <div class="card" style="margin-top:16px"><h2>Catégories de charges</h2>
     <p class="help" style="margin-top:0">Ce sont les lignes du bilan (TABLE M), rangées par groupe, et la liste « Catégorie » des charges.
@@ -363,8 +359,13 @@ dialog::backdrop{background:rgba(0,0,0,.35)}dialog p{margin:0 0 10px;font-size:1
 <div id="printArea"></div>
 </div>
 <div id="tip"></div>
-<dialog id="pwdDlg"><form method="dialog"><p></p><input type="password" autocomplete="current-password" aria-label="Mot de passe">
-  <div class="dlgb"><button type="button" class="btn" onclick="this.closest('dialog').close('cancel')">Annuler</button><button class="btn pri" value="ok">Valider</button></div></form></dialog>
+<dialog id="pwdDlg"><form method="dialog" autocomplete="off">
+  <h3 class="dlgt"></h3><p class="dlgm"></p>
+  <label class="fld"><span class="dlgl">Mot de passe</span><input type="password" name="p" required></label>
+  <label class="fld dlg2"><span>Confirmer le mot de passe</span><input type="password" name="p2"></label>
+  <p class="dlge" role="alert"></p>
+  <div class="dlgb"><button type="button" class="btn dlgc">Annuler</button><button class="btn pri dlgok"></button></div>
+</form></dialog>
 
 <script>
 const KEY = 'suiviVentes.v1', RESP = 'Noureddine';
@@ -491,6 +492,7 @@ function demoData() {
   const d = { ...DEF(), params: { ...DEF().params, soldeInitial: 6000, fondCaisse: 2000, euro: 150 },
     fours: ['Boucherie Atlas', 'Volailles Zaër', 'Poissonnerie du Port', 'Grossiste Boissons', 'Fromagerie du Centre', 'Emballages Pro']
       .map(nom => ({ nom, tel: '', solde0: { 'Boucherie Atlas': 3200, 'Grossiste Boissons': 1500 }[nom] || 0 })),
+    pwd: '748ea51d91c390217e98bdc088a80e645ccbe7b9349e986a5d317fcab79bb010', // mot de passe de démonstration : 1234
     clients: ['Bureau Atlas Conseil', 'M. Karim B.', 'Mme Salma E.', 'Agence Voyages Sud', 'Équipe du chantier voisin'].map(nom => ({ nom, tel: '', solde0: nom === 'M. Karim B.' ? 450 : 0 })) };
   const K = [.75, .9, .95, 1, 1.15, 1.45, 1.35];                       // dimanche → samedi
   const MF = [.85, .9, .78, 1, 1.05, 1.15, 1.3, 1.38, 1.05, 1, .92, 1.1]; // saison : janvier → décembre
@@ -611,7 +613,7 @@ async function useFile(h, mode) {
   }
   fileH = h; fileState = 'ok';
   await idb('readwrite', s => s.put(h, 'file'));
-  save(); render();
+  save(); render(); needPwd();
 }
 const fail = e => { if (e.name !== 'AbortError') alert('Fichier : ' + e.message); };
 const demoBlock = () => DEMO && (alert('Mode démonstration : cliquez sur « Utiliser mes vraies données » pour enregistrer dans un fichier.'), true);
@@ -621,7 +623,7 @@ async function newFile() {
 }
 async function openFile() {
   if (demoBlock()) return;
-  if ((db.charges.length || db.mvts.length || db.fours.length || db.clients.length || Object.keys(db.jours).length) && !(confirm('Les données du fichier vont remplacer celles affichées. Continuer ?') && await guard())) return;
+  if ((db.charges.length || db.mvts.length || db.fours.length || db.clients.length || Object.keys(db.jours).length) && !(await guard('Les données du fichier vont remplacer celles affichées. Continuer ?', 'Ouvrir', 'Ouvrir un autre fichier'))) return;
   try { const [h] = await showOpenFilePicker(XLSX_PICK); await useFile(h, 'ouvrir'); } catch (e) { fail(e); }
 }
 async function reconnect() {
@@ -815,25 +817,36 @@ const insList = o => o.length
   ? `<ul class="ins">${o.map(i => `<li><span class="ic ${i.k}">${i.k === 'up' ? '▲' : i.k === 'dn' ? '▼' : '•'}</span><span><b>${i.h}</b>${i.t ? ' — ' + i.t : ''}</span></li>`).join('')}</ul>`
   : '<p class="empty">Aucune vente saisie pour ce mois : les constats apparaîtront dès la première journée saisie.</p>';
 
-// ---------- mot de passe (facultatif) pour supprimer ou modifier une saisie déjà enregistrée ----------
-// ponytail: protège des erreurs et du personnel, pas de quelqu'un qui ouvre le fichier Excel ; une fois tapé, déverrouillé UNLOCK ms
-const UNLOCK = 5 * 60 * 1000;
-let unlockedUntil = 0;
+// ---------- mot de passe : obligatoire, demandé à chaque suppression et à chaque modification d'une saisie enregistrée ----------
+// ponytail: protège des erreurs et du personnel, pas de quelqu'un qui ouvre lui-même le fichier Excel
 const sha = async s => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('suiviVentes:' + s)))].map(b => b.toString(16).padStart(2, '0')).join('');
-function askPwd(msg) {
-  const d = $('#pwdDlg'), i = d.querySelector('input');
-  d.querySelector('p').textContent = msg; i.value = ''; d.returnValue = '';
-  d.showModal(); i.focus();
-  return new Promise(res => d.addEventListener('close', () => res(d.returnValue === 'ok' ? i.value : null), { once: true }));
+// une seule fenêtre : la question et le champ mot de passe ; `check` renvoie un message d'erreur (la fenêtre reste ouverte) ou '' (c'est bon)
+function pwdDialog({ title, msg = '', ok, twice = false, cancel = true, check }) {
+  const d = $('#pwdDlg'), f = d.querySelector('form'), err = d.querySelector('.dlge'), c = d.querySelector('.dlgc');
+  d.querySelector('.dlgt').textContent = title; d.querySelector('.dlgm').textContent = msg;
+  d.querySelector('.dlgl').textContent = twice ? 'Nouveau mot de passe' : 'Mot de passe';
+  d.querySelector('.dlg2').hidden = !twice; c.hidden = !cancel; d.querySelector('.dlgok').textContent = ok;
+  f.p.value = f.p2.value = ''; err.textContent = '';
+  d.showModal(); f.p.focus();
+  return new Promise(res => {
+    const done = v => { d.close(); res(v); };
+    f.onsubmit = async e => { e.preventDefault(); const m = await check(f.p.value, f.p2.value); if (m) { err.textContent = m; f.p.select(); } else done(true); };
+    d.oncancel = e => { e.preventDefault(); if (cancel) done(false); }; // touche Échap
+    c.onclick = () => done(false);
+  });
 }
-async function guard() {
-  if (!db.pwd || Date.now() < unlockedUntil) return true;
-  const p = await askPwd('Mot de passe requis pour supprimer ou modifier une saisie enregistrée :');
-  if (p == null) return false;
-  if (await sha(p) !== db.pwd) { alert('Mot de passe incorrect.'); return false; }
-  unlockedUntil = Date.now() + UNLOCK;
-  return true;
+// créer le mot de passe (impossible de passer) ou le changer
+const setupPwd = (force = true) => pwdDialog({ title: force ? 'Créez votre mot de passe' : 'Nouveau mot de passe', ok: 'Enregistrer', twice: true, cancel: !force,
+  msg: 'Il sera demandé à chaque suppression et à chaque modification d\'une saisie enregistrée. Notez-le bien.',
+  check: async (a, b) => a.length < 4 ? 'Au moins 4 caractères.' : a !== b ? 'Les deux mots de passe ne sont pas identiques.'
+    : (db.pwd = await sha(a), save(), render(), flash('Mot de passe enregistré ✓'), '') });
+// confirmer une suppression / modification : seulement avec le bon mot de passe
+async function guard(msg, ok = 'Supprimer', title = 'Confirmer la suppression') {
+  if (!db.pwd) await setupPwd();
+  return pwdDialog({ title, msg, ok, check: async p => await sha(p) === db.pwd ? '' : 'Mot de passe incorrect.' });
 }
+// première utilisation (ou fichier sans mot de passe) : on le fait créer tout de suite
+const needPwd = () => { if (!DEMO && !db.pwd && fileState !== 'reconnect' && !$('#pwdDlg').open) setupPwd(); };
 
 // ---------- pages ----------
 const state = { page: location.hash.slice(1), ym: today().slice(0, 7), date: today(), year: new Date().getFullYear(), four: null, client: null, du: '', au: '' }; // du / au : période des relevés
@@ -1201,9 +1214,6 @@ function params() {
     : fileH ? `Les données sont enregistrées automatiquement dans <b>${esc(fileH.name)}</b>. Vous pouvez l'ouvrir dans Excel pour les consulter (fermez-le avant de continuer la saisie).`
     : 'Aucun fichier choisi : les données ne sont gardées que dans le navigateur.';
   document.querySelector('.fsonly').hidden = !FS_OK || DEMO;
-  $('#pwdInfo').textContent = db.pwd ? `Activé : il est demandé pour supprimer ou modifier une saisie déjà enregistrée (puis plus rien pendant ${UNLOCK / 60000} minutes). Pour le changer, tapez le nouveau ci-dessous.`
-    : 'Aucun mot de passe : tout le monde peut supprimer ou modifier les saisies. Choisissez-en un pour protéger les données.';
-  $('#pwdOff').hidden = !db.pwd;
   $('#catList').innerHTML = GRPS.map(g => `<div class="cg"><b>${esc(g)}${g === VAR ? '' : ' <small>(dépenses fixes)</small>'}</b>` +
     (db.cats.filter(c => grpOf(c) === g).map(c => `<span class="chip">${esc(c)}<button class="x" data-delcat="${esc(c)}" title="Supprimer" aria-label="Supprimer ${esc(c)}">×</button></span>`).join('') || '<span class="empty">—</span>') + '</div>').join('');
 }
@@ -1287,7 +1297,7 @@ function toIso(v) {
 }
 async function restore(file) {
   if (!file) return;
-  if (!confirm('Remplacer TOUTES les données actuelles par celles du fichier « ' + file.name + ' » ?') || !(await guard())) return;
+  if (!(await guard('Remplacer TOUTES les données actuelles par celles du fichier « ' + file.name + ' » ?', 'Remplacer', 'Restaurer une copie'))) return;
   try {
     const nd = fromWorkbook(XLSX.read(await file.arrayBuffer()));
     if (!nd) return alert('Fichier non reconnu : il faut une copie avec les feuilles « Journal » et « Charges ».');
@@ -1351,7 +1361,7 @@ function addClient(name) { // même principe que addFour
 function renderBanner() {
   const name = fileH ? `<b>${esc(fileH.name)}</b>` : '';
   let h = '';
-  if (DEMO) h = `<div>🧪 <span><b>Mode démonstration</b> — ces chiffres sont fictifs et générés automatiquement. Modifiez ce que vous voulez : rien n'est enregistré.</span><a class="btn pri" href="?">Utiliser mes vraies données</a></div>`;
+  if (DEMO) h = `<div>🧪 <span><b>Mode démonstration</b> — ces chiffres sont fictifs et générés automatiquement. Modifiez ce que vous voulez : rien n'est enregistré. Mot de passe de démonstration : <b>1234</b>.</span><a class="btn pri" href="?">Utiliser mes vraies données</a></div>`;
   else if (!FS_OK) h = `<div class="warn">⚠ Ce navigateur ne peut pas enregistrer dans un fichier : les données restent seulement dans le navigateur. <b>Ouvrez index.html avec Google Chrome ou Microsoft Edge.</b></div>`;
   else if (!fileH) h = `<div>📄 <span><b>Où enregistrer les données ?</b> Créez un fichier Excel (de préférence dans le dossier de l'app) : chaque saisie y sera enregistrée automatiquement.</span>
     <button class="btn pri" onclick="newFile()">Créer le fichier de données</button><button class="btn" onclick="openFile()">Ouvrir un fichier existant</button></div>`;
@@ -1372,7 +1382,7 @@ document.addEventListener('change', async e => {
   if (e.target.matches('.ym') && e.target.value) { state.ym = e.target.value; render(); }
   // modifier un paramètre enregistré : mot de passe (refusé → la valeur d'avant revient)
   const pk = e.target.dataset?.param;
-  if (pk) { const v = num(e.target.value); if (await guard()) { db.params[pk] = v; save(); } return render(); }
+  if (pk) { const v = num(e.target.value); if (await guard(`« ${PARAMS.find(x => x[0] === pk)[1]} » : ${fmt(db.params[pk])} → ${fmt(v)}`, 'Modifier', 'Modifier un réglage')) { db.params[pk] = v; save(); } return render(); }
   if (e.target.name === 'cat' && e.target.value === NEW_CAT) {
     const c = addCat(prompt('Nom de la nouvelle catégorie :'));
     fillCats(); e.target.value = c || e.target.options[0].value;
@@ -1387,7 +1397,7 @@ document.addEventListener('change', async e => {
     f.cat.hidden = f.tva.hidden = p; f.mode.hidden = !p; f.montant.placeholder = p ? 'Montant payé (DH)' : 'Montant HT (DH)';
   }
   const k = e.target.dataset?.fset, fo = k && db.fours.find(x => x.nom === state.four);
-  if (fo) { const v = e.target.value; if (await guard()) { fo[k] = k === 'tel' ? v.trim() : num(v); save(); } return render(); }
+  if (fo) { const v = e.target.value; if (await guard(`Modifier ${k === 'tel' ? 'le téléphone' : 'le solde de départ'} de ${fo.nom} ?`, 'Modifier', 'Modifier un fournisseur')) { fo[k] = k === 'tel' ? v.trim() : num(v); save(); } return render(); }
   if (e.target.name === 'client' && e.target.value === NEW_CLIENT) {
     const n = addClient(prompt('Nom du client :'));
     fillClients(); e.target.value = n || '';
@@ -1397,23 +1407,16 @@ document.addEventListener('change', async e => {
   const per = e.target.dataset?.per;
   if (per) { state[per] = e.target.value; render(); }
   const kc = e.target.dataset?.cset, cl = kc && db.clients.find(x => x.nom === state.client);
-  if (cl) { const v = e.target.value; if (await guard()) { cl[kc] = kc === 'tel' ? v.trim() : num(v); save(); } return render(); }
+  if (cl) { const v = e.target.value; if (await guard(`Modifier ${kc === 'tel' ? 'le téléphone' : 'le solde de départ'} de ${cl.nom} ?`, 'Modifier', 'Modifier un client')) { cl[kc] = kc === 'tel' ? v.trim() : num(v); save(); } return render(); }
 });
 $('#fCat').g.innerHTML = GRPS.map(g => `<option${g === DEF_GRP ? ' selected' : ''}>${esc(g)}</option>`).join('');
 $('#fCat').onsubmit = async e => {
   e.preventDefault();
   const n = e.target.c.value.trim(), g = e.target.g.value;
-  if (db.cats.some(x => x.toLowerCase() === n.toLowerCase()) && !(await guard())) return; // changer le groupe d'une catégorie existante
+  if (db.cats.some(x => x.toLowerCase() === n.toLowerCase()) && !(await guard(`Mettre « ${n} » dans le groupe « ${g} » ?`, 'Modifier', 'Changer de groupe'))) return;
   addCat(n, g); e.target.c.value = ''; render();
 };
-$('#fPwd').onsubmit = async e => {
-  e.preventDefault();
-  const f = e.target, p1 = f.p1.value;
-  if (p1 !== f.p2.value) return alert('Les deux mots de passe ne sont pas identiques.');
-  if (p1.length < 4) return alert('Choisissez au moins 4 caractères.');
-  if (db.pwd && !(await guard())) return;                                    // changer : l'ancien d'abord
-  db.pwd = await sha(p1); unlockedUntil = Date.now() + UNLOCK; save(); f.reset(); render(); flash('Mot de passe enregistré ✓');
-};
+
 $('#fMvt').onsubmit = e => {
   e.preventDefault();
   const f = e.target.elements, m = num(f.montant.value);
@@ -1451,7 +1454,7 @@ $('#fJour').onsubmit = e => { e.preventDefault(); saveJour(); };
 async function saveJour() {
   if (!draft) return flash('Rien de nouveau à enregistrer');
   const old = db.jours[state.date];
-  if (old && Object.values(old).some(v => v) && !(await guard())) return; // modifier une journée déjà enregistrée
+  if (old && Object.values(old).some(v => v) && !(await guard(`La journée du ${fd(state.date)} est déjà enregistrée. Enregistrer les modifications ?`, 'Enregistrer', 'Modifier une journée enregistrée'))) return;
   if (Object.values(draft).every(v => !v)) delete db.jours[state.date]; else db.jours[state.date] = draft;
   draft = null; save(); saisie(); flash(`Journée du ${fd(state.date)} enregistrée ✓`);
 }
@@ -1475,21 +1478,21 @@ document.addEventListener('submit', e => {
 });
 document.addEventListener('click', async e => {
   if (e.target.closest('[data-savejour]')) return saveJour();
-  if (e.target.closest('#pwdOff')) { if (confirm('Supprimer le mot de passe ?') && await guard()) { db.pwd = ''; save(); render(); } return; }
+  if (e.target.closest('#pwdChange')) { if (await guard('Tapez d\'abord le mot de passe actuel.', 'Continuer', 'Changer le mot de passe')) await setupPwd(false); return; }
   const dc = e.target.closest('[data-delcat]');
-  if (dc) { if (await guard()) { db.cats = db.cats.filter(c => c !== dc.dataset.delcat); save(); render(); } return; }
+  if (dc) { if (await guard(`Supprimer la catégorie « ${dc.dataset.delcat} » ?`)) { db.cats = db.cats.filter(c => c !== dc.dataset.delcat); save(); render(); } return; }
   const dm = e.target.closest('[data-delmv]'), mv = dm && db.mvts.find(x => x.id === dm.dataset.delmv);
-  if (mv) { if (confirm(`Supprimer cette ${mv.type.toLowerCase()} de ${fmt(mv.montant)} DH${mv.motif ? ' (' + mv.motif + ')' : ''} ?`) && await guard()) { db.mvts = db.mvts.filter(x => x !== mv); save(); render(); } return; }
+  if (mv) { if (await guard(`Supprimer cette ${mv.type.toLowerCase()} de ${fmt(mv.montant)} DH${mv.motif ? ' (' + mv.motif + ')' : ''} ?`)) { db.mvts = db.mvts.filter(x => x !== mv); save(); render(); } return; }
   const dp = e.target.closest('[data-delpay]'), pay = dp && db.paiements.find(x => x.id === dp.dataset.delpay);
-  if (pay) { if (confirm(`Supprimer le paiement de ${fmt(pay.montant)} DH à ${pay.four} du ${fd(pay.date)} ?`) && await guard()) { db.paiements = db.paiements.filter(x => x !== pay); save(); render(); } return; }
+  if (pay) { if (await guard(`Supprimer le paiement de ${fmt(pay.montant)} DH à ${pay.four} du ${fd(pay.date)} ?`)) { db.paiements = db.paiements.filter(x => x !== pay); save(); render(); } return; }
   const df = e.target.closest('[data-delfour]');
-  if (df) { if (confirm(`Supprimer le fournisseur « ${df.dataset.delfour} » ?`) && await guard()) { db.fours = db.fours.filter(x => x.nom !== df.dataset.delfour); state.four = null; save(); render(); } return; }
+  if (df) { if (await guard(`Supprimer le fournisseur « ${df.dataset.delfour} » ?`)) { db.fours = db.fours.filter(x => x.nom !== df.dataset.delfour); state.four = null; save(); render(); } return; }
   const rl = e.target.closest('[data-releve]');
   if (rl) return releveOut(rl.dataset.kind, rl.dataset.releve);
   const dco = e.target.closest('[data-delcop]'), cop = dco && db.cops.find(x => x.id === dco.dataset.delcop);
-  if (cop) { if (confirm(`Supprimer « ${cop.type === 'Crédit' ? 'vente à crédit' : 'remboursement'} » de ${fmt(cop.montant)} DH pour ${cop.client} du ${fd(cop.date)} ?`) && await guard()) { db.cops = db.cops.filter(x => x !== cop); save(); render(); } return; }
+  if (cop) { if (await guard(`Supprimer « ${cop.type === 'Crédit' ? 'vente à crédit' : 'remboursement'} » de ${fmt(cop.montant)} DH pour ${cop.client} du ${fd(cop.date)} ?`)) { db.cops = db.cops.filter(x => x !== cop); save(); render(); } return; }
   const dcl = e.target.closest('[data-delclient]');
-  if (dcl) { if (confirm(`Supprimer le client « ${dcl.dataset.delclient} » ?`) && await guard()) { db.clients = db.clients.filter(x => x.nom !== dcl.dataset.delclient); state.client = null; save(); render(); } return; }
+  if (dcl) { if (await guard(`Supprimer le client « ${dcl.dataset.delclient} » ?`)) { db.clients = db.clients.filter(x => x.nom !== dcl.dataset.delclient); state.client = null; save(); render(); } return; }
   const cr = e.target.closest('[data-client]');
   if (cr) { state.client = cr.dataset.client; document.querySelector('#p-clients .fClient').elements.client.value = state.client; clients(); return $('#clDet').scrollIntoView({ behavior: 'smooth' }); }
   const fr = e.target.closest('[data-four]');
@@ -1497,7 +1500,7 @@ document.addEventListener('click', async e => {
   const del = e.target.closest('[data-del]'), day = e.target.closest('[data-day]'), mo = e.target.closest('[data-month]');
   if (del) {
     const c = db.charges.find(x => x.id === del.dataset.del);
-    if (c && confirm(`Supprimer la charge « ${c.cat} ${c.lib} » de ${fmt(c.montant)} DH ?`) && await guard()) { db.charges = db.charges.filter(x => x !== c); save(); render(); }
+    if (c && await guard(`Supprimer la charge « ${c.cat} ${c.lib} » de ${fmt(c.montant)} DH ?`)) { db.charges = db.charges.filter(x => x !== c); save(); render(); }
   } else if (day) { if (leaveDraft()) { state.date = day.dataset.day; go('saisie'); } }
   else if (mo) { state.ym = mo.dataset.month; go('rapport'); }
 });
@@ -1558,7 +1561,7 @@ if (location.search.includes('test')) {
   alert(bad.length ? 'Auto-test ÉCHEC : ' + bad.join(', ') : 'Auto-test OK ✓');
 }
 render();
-initFile();
+initFile().then(needPwd);
 </script>
 </body>
 </html>
