@@ -927,19 +927,20 @@ function saisie() {
 function live() {
   // aperçu : la saisie pas encore enregistrée est déjà prise en compte dans les calculs
   const L = ledger(draft ? { ...db, jours: { ...db.jours, [state.date]: draft } } : db), r = L.find(x => x.date === state.date) || Object.fromEntries(NUM.map(k => [k, 0])), ym = state.date.slice(0, 7);
-  const st = at(L, state.date), mtd = sumBy(monthRows(L, ym).filter(x => x.date <= state.date), x => x.ca);
+  const st = at(L, state.date), mois = monthRows(L, ym).filter(x => x.date <= state.date), tva = +db.params.tvaVentes || 0;
   $('#jState').textContent = draft ? '⚠ Modifications non enregistrées' : db.jours[state.date] ? 'Journée enregistrée ✓' : '';
   $('#live').innerHTML = (draft ? `<div class="unsaved">⚠ Saisie non enregistrée <button class="btn pri" data-savejour>Enregistrer</button></div>` : '') +
-    `<div class="tl">CA HT du ${dLabel(state.date)}</div><div class="big">${fmt(r.ca)} <small style="font-size:16px">DH</small></div>
-    <div class="formula">TTC ${fmt(r.caTTC)} DH ÷ ${String(1 + (+db.params.tvaVentes || 0) / 100).replace('.', ',')} (TVA ${+db.params.tvaVentes || 0} %)<br>
-      TTC = Espèce + Euros × taux + Carte + Vir/Chéq + Glovo en ligne + Crédit client</div>
+    // ici le CA est montré TTC (l'argent encaissé) ; rapports, bilan et tableau de bord restent en HT
+    `<div class="tl">CA TTC du ${dLabel(state.date)}</div><div class="big">${fmt(r.caTTC)} <small style="font-size:16px">DH</small></div>
+    <div class="formula">= Espèce + Euros × taux + Carte + Vir/Chéq + Glovo en ligne + Crédit client<br>
+      soit ${fmt(r.ca)} DH HT (TVA ${tva} %)</div>
     ${kv('Dépenses payées en caisse', fmt(r.dep), (r.payF ? `dont ${fmt(r.payF)} payés aux fournisseurs · ` : '') + 'sortent de la caisse')}
     ${kv('Reçu par ' + RESP, fmt(r.recu), 'Espèce + Euros (en DH) + Crédit payé')}
     ${r.entree || r.sortie ? kv('Entrées − sorties de caisse', signed(r.entree - r.sortie), 'onglet Caisse') : ''}
     ${kv('Reste en caisse', fmt(st.reste), 'Reste veille + Reçu − Dépenses caisse − Versements + Entrées − Sorties')}
     ${kv('Euros en caisse', fmt(st.eur) + ' €', `= ${fmt(st.eur * (+db.params.taux || 0))} DH · compris dans le Reste`)}
     ${kv('Crédit clients en cours', fmt(creditDu(state.date)), 'à récupérer · onglet Clients')}
-    ${kv('CA HT du mois à ce jour', fmt(mtd), mName(ym))}
+    ${kv('CA TTC du mois à ce jour', fmt(sumBy(mois, x => x.caTTC)), `${mName(ym)} · soit ${fmt(sumBy(mois, x => x.ca))} HT`)}
     ${kv('Toutes charges du jour', fmt(r.charges), 'caisse + banque + factures HT')}`;
   const ch = db.charges.filter(c => c.date === state.date);
   $('#dayCh').innerHTML = ch.length ? chargeTable(ch, false) : '<p class="empty">Aucune dépense ce jour.</p>';
