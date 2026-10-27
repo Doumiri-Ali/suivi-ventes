@@ -75,7 +75,7 @@ input,select,button,textarea{font:inherit;color:var(--ink)}
 input,select,textarea{background:var(--field);border:1px solid var(--axis);border-radius:8px;padding:8px 10px;min-width:0}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--s1);outline-offset:-1px;border-color:transparent}
 .btn{background:var(--surface);border:1px solid var(--axis);border-radius:8px;padding:8px 14px;cursor:pointer}
-.btn:hover{background:var(--wash)}.btn.pri{background:var(--s1);border-color:var(--s1);color:#fff}
+.btn:hover{background:var(--wash)}.btn.sm{padding:4px 10px;font-size:13px}.btn.pri{background:var(--s1);border-color:var(--s1);color:#fff}
 a.btn{display:inline-block;text-decoration:none;color:var(--ink)}a.btn.pri{color:#fff}
 .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--axis);border-radius:999px;padding:3px 8px 3px 12px;margin:0 6px 8px 0;font-size:13.5px}
 .x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1}.x:hover{color:var(--bad)}
@@ -277,20 +277,35 @@ dialog::backdrop{background:rgba(0,0,0,.45)}dialog p{margin:0 0 10px;font-size:1
     <form id="fOp" class="addf" autocomplete="off">
       <input type="date" name="date" required aria-label="Date">
       <select name="four" aria-label="Fournisseur"></select>
-      <select name="type" aria-label="Opération"><option value="Facture">Facture (à crédit)</option><option value="Paiement">Paiement</option><option value="Avoir">Avoir / retour</option></select>
-      <input name="ref" placeholder="N° facture / chèque">
+      <select name="type" aria-label="Opération"><option value="BL">Bon de livraison</option><option value="Facture">Facture (à crédit)</option><option value="Paiement">Paiement</option><option value="Avoir">Avoir / retour</option></select>
+      <input name="ref" placeholder="N° BL / facture / chèque">
       <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant HT (DH)" required>
       <select name="tva" aria-label="TVA de la facture"><option value="0">TVA 0 %</option><option value="7">TVA 7 %</option><option value="10">TVA 10 %</option><option value="14">TVA 14 %</option><option value="20" selected>TVA 20 %</option></select>
       <select name="cat" aria-label="Catégorie"></select>
       <select name="mode" aria-label="Payé par" hidden><option value="Caisse">Payé en espèces (caisse)</option><option value="Banque">Payé par banque / chèque</option></select>
       <button class="btn pri">Ajouter</button>
     </form>
-    <p class="help" style="margin:0"><b>Facture</b> : achat à crédit, saisi <b>HT</b> avec son taux de TVA — le HT compte dans les charges du mois, le TTC (HT + TVA) est ce que vous devez.
+    <p class="help" style="margin:0"><b>Bon de livraison</b> : marchandise reçue, pas encore facturée — saisi <b>HT</b> avec sa TVA, il compte tout de suite dans les charges et dans ce que vous devez ; quand la facture arrive, cochez ses BL plus bas et « Générer la facture ».
+      <b>Facture</b> : achat à crédit sans BL, saisi <b>HT</b> avec son taux de TVA — le HT compte dans les charges du mois, le TTC (HT + TVA) est ce que vous devez.
       <b>Paiement</b> : vous payez le fournisseur — en espèces, il sort de la caisse (colonne Dépense du jour), sans être compté une 2e fois dans les charges.
       <b>Avoir</b> : retour ou remise du fournisseur — diminue ce que vous devez et les charges. Si vous payez plus que les factures (avance), c'est le fournisseur qui vous doit.</p>
   </div>
   <div class="card"><h2>État des fournisseurs<span class="noprint"> — cliquez une ligne pour voir le relevé</span></h2><div class="tw" id="fEtat"></div></div>
   <div class="card" id="fDet" hidden></div>
+  <div class="card"><h2>Bons de livraison</h2>
+    <div class="bar noprint" style="margin:0 0 10px">
+      <select id="blFour" aria-label="Fournisseur"></select>
+      <select id="blStat" aria-label="Statut"><option value="todo">À facturer</option><option value="done">Facturés</option><option value="">Tous</option></select>
+    </div>
+    <div class="tw" id="blList"></div>
+    <form id="fFacBL" class="noprint" autocomplete="off" hidden style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+      <input name="num" placeholder="N° de la facture" required aria-label="Numéro de la facture" style="flex:1 1 160px;max-width:240px">
+      <input type="date" name="date" required aria-label="Date de la facture">
+      <button class="btn pri"></button>
+    </form>
+    <p class="help" id="blMsg" style="color:var(--bad)"></p>
+  </div>
+  <div class="card"><h2>Factures générées depuis des BL</h2><div class="tw" id="facList"></div></div>
 </section>
 
 <section id="p-clients" class="page" hidden>
@@ -505,7 +520,7 @@ function demoData() {
     d.charges.push({ id: uid(), date, cat, lib: '', montant, source, ...x });
   };
   // factures saisies HT avec leur taux de TVA ; le fournisseur attend le TTC
-  const fac = (date, four, cat, m, ref, tva, lib = 'Facture') => { owed[four] = (owed[four] || 0) + m * (1 + tva / 100); C(date, cat, m, 'Fournisseur', { four, ref, lib, tva }); };
+  const fac = (date, four, cat, m, ref, tva, lib = 'Facture') => { owed[four] = (owed[four] || 0) + m * (1 + tva / 100); C(date, cat, m, 'Fournisseur', { four, ref, lib, tva, ...(lib === 'BL' ? { bl: 1, fac: '' } : {}) }); };
   const pay = (date, four, m, mode, ref) => { m = Math.round(m); if (m > 0) { owed[four] = (owed[four] || 0) - m; if (mode === 'Caisse') cash -= m; d.paiements.push({ id: uid(), date, four, montant: m, mode, ref }); } };
   for (const ym of months) {
     const mo = +ym.slice(5), mf = MF[mo - 1];
@@ -530,6 +545,10 @@ function demoData() {
         C(iso, 'Pourboire', 400); C(iso, 'Fournitures de bureau', 120 + rnd() * 150);
       }
       for (const [c, v, s] of DEMO_ONE[iso.slice(5)] || []) C(iso, c, v, s);
+      // factures reçues pour les BL : boucherie le 3 (BL du mois précédent), volailles le 1er et le 16 (BL d'avant)
+      const facturer = (four, num, avant) => { for (const c of d.charges) if (c.four === four && c.bl && !c.fac && c.date < avant) { c.fac = num; c.facDate = iso; } };
+      if (day === 3) facturer('Boucherie Atlas', 'FA-' + prevYm(ym).slice(2).replace('-', ''), ym + '-01');
+      if (day === 1 || day === 16) facturer('Volailles Zaër', 'VZ-' + iso.slice(2).replace(/-/g, ''), iso);
       if (iso.slice(5) === '06-18') fac(iso, 'Grossiste Boissons', 'Limonades', -420, 'Bouteilles consignées', 20, 'Avoir');
       if (iso.slice(5) === '08-14') fac(iso, 'Boucherie Atlas', 'Boucherie', -650, 'Retour viande', 0, 'Avoir');
       if (iso.slice(5) === '09-03') pay(iso, 'Emballages Pro', 3000, 'Banque', 'Avance');              // avance : ce fournisseur finit par vous devoir
@@ -558,8 +577,8 @@ function demoData() {
         ['Emballage (sacs, boîtes, couverts)', .03, .2], ['Cire (allumage des bougies)', .008, .2], ['Petit matériel', .03, .05], ['Service', .04, .08], ['Divers', .02, .1]])
         if (rnd() < p) C(iso, c, r(x * (.7 + rnd() * .6)));
       // fournisseurs : factures à crédit, payées en partie plus tard
-      if (wd === 2) fac(iso, 'Boucherie Atlas', 'Boucherie', r(.5), ref('BA-'), 0);
-      if (wd === 3 || wd === 6) fac(iso, 'Volailles Zaër', 'Volaille', r(.18), ref('VZ-'), 0);
+      if (wd === 2) fac(iso, 'Boucherie Atlas', 'Boucherie', r(.5), ref('BL-BA-'), 0, 'BL');
+      if (wd === 3 || wd === 6) fac(iso, 'Volailles Zaër', 'Volaille', r(.18), ref('BL-VZ-'), 0, 'BL');
       if (wd === 5) fac(iso, 'Poissonnerie du Port', 'Poisson', r(.2), ref('PP-'), 0);
       if (wd === 4) { fac(iso, 'Grossiste Boissons', 'Limonades', r(.3), ref('GB-'), 20); fac(iso, 'Grossiste Boissons', 'Eaux minérales', r(.08), ref('GBE-'), 7); }
       if (day === 2 || day === 16) fac(iso, 'Fromagerie du Centre', 'Fromage', 1800 + rnd() * 600, ref('FC-'), 7);
@@ -917,7 +936,7 @@ function live() {
 }
 function chargeTable(list, withDate) {
   return `<table><thead><tr>${withDate ? '<th>Date</th>' : ''}<th class="t">Catégorie</th><th class="t">Libellé</th><th class="t">Source</th><th>Montant HT</th><th></th></tr></thead><tbody>` +
-    list.map(c => `<tr>${withDate ? `<td>${fd(c.date)}</td>` : ''}<td class="t">${esc(c.cat)}</td><td class="t">${esc([c.lib, c.four, c.ref && 'n° ' + c.ref, (c.tva || (c.source === 'Fournisseur' && c.tva != null)) && `TVA ${c.tva} %`].filter(Boolean).join(' · '))}</td><td class="t">${esc(c.source)}</td><td>${fmt(c.montant)}</td><td><button class="x" data-del="${esc(c.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
+    list.map(c => `<tr>${withDate ? `<td>${fd(c.date)}</td>` : ''}<td class="t">${esc(c.cat)}</td><td class="t">${esc([c.lib, c.four, c.ref && 'n° ' + c.ref, c.fac && 'facture ' + c.fac, (c.tva || (c.source === 'Fournisseur' && c.tva != null)) && `TVA ${c.tva} %`].filter(Boolean).join(' · '))}</td><td class="t">${esc(c.source)}</td><td>${fmt(c.montant)}</td><td><button class="x" data-del="${esc(c.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
     `</tbody><tfoot><tr><td colspan="${withDate ? 4 : 3}">Total</td><td>${fmt(sumBy(list, c => +c.montant))}</td><td></td></tr></tfoot></table>`;
 }
 
@@ -971,12 +990,12 @@ function compte(nom, d = db) {
   const f = d.fours.find(x => x.nom === nom) || {}, solde0 = +f.solde0 || 0;
   // factures saisies HT : on doit le TTC (anciennes factures sans taux = montant déjà dû)
   const ops = [...d.charges.filter(c => c.source === 'Fournisseur' && c.four === nom).map(c => ({ ...c, del: 'del', v: ttcOf(c),
-      op: (c.montant < 0 ? 'Avoir' : 'Facture') + (c.tva ? ` (HT ${fmt(Math.abs(c.montant))} + TVA ${c.tva} %)` : '') })),
+      op: (c.montant < 0 ? 'Avoir' : c.bl ? 'Bon de livraison' : 'Facture') + (c.bl ? (c.fac ? ` · facture ${esc(c.fac)}` : ' · à facturer') : '') + (c.tva ? ` (HT ${fmt(Math.abs(c.montant))} + TVA ${c.tva} %)` : '') })),
     ...d.paiements.filter(p => p.four === nom).map(p => ({ ...p, op: p.mode === 'Caisse' ? 'Paiement espèces' : 'Paiement banque', v: -(+p.montant || 0), del: 'delpay' }))]
     .sort((a, b) => a.date.localeCompare(b.date));
   let solde = solde0;
   for (const o of ops) o.solde = solde = cent(solde + o.v);
-  return { nom, tel: f.tel || '', solde0, ops, solde, fact: sumBy(ops, o => Math.max(0, o.v)), regl: -sumBy(ops, o => Math.min(0, o.v)) };
+  return { nom, tel: f.tel || '', solde0, ops, solde, fact: sumBy(ops, o => Math.max(0, o.v)), regl: -sumBy(ops, o => Math.min(0, o.v)), blTodo: sumBy(ops.filter(o => o.bl && !o.fac), o => o.v) };
 }
 const sl = (s, nom) => s > 0 ? `Vous devez ${fmt(s)} DH à ${esc(nom)}` : s < 0 ? `${esc(nom)} vous doit ${fmt(-s)} DH` : 'Compte soldé ✓';
 function fournisseurs() {
@@ -986,18 +1005,20 @@ function fournisseurs() {
   // chiffres du mois en cours (les soldes, eux, comptent tout l'historique)
   const ym = today().slice(0, 7), mois = mName(ym), dette = sumBy(du, c => c.solde);
   const fac = db.charges.filter(c => c.source === 'Fournisseur' && c.montant > 0 && c.date.startsWith(ym)), pays = db.paiements.filter(p => p.date.startsWith(ym));
-  const payEsp = sumBy(pays.filter(p => p.mode === 'Caisse'), p => +p.montant);
+  const payEsp = sumBy(pays.filter(p => p.mode === 'Caisse'), p => +p.montant), blTodo = db.charges.filter(c => c.bl && !c.fac);
   $('#fTiles').innerHTML = kpi('Vous devez aux fournisseurs', fmt(dette), `${du.length} fournisseur(s) à payer`, 'lead') +
     kpi('Les fournisseurs vous doivent', fmt(-sumBy(doit, c => c.solde)), 'avances ou avoirs pas encore utilisés') +
-    kpi('Achats HT — ' + mois, fmt(sumBy(fac, c => +c.montant)), `${fac.length} facture(s) · ${fmt(sumBy(fac, c => c.montant * (1 + (+c.tva || 0) / 100)))} TTC`) +
+    kpi('Achats HT — ' + mois, fmt(sumBy(fac, c => +c.montant)), `${fac.length} BL ou facture(s) · ${fmt(sumBy(fac, ttcOf))} TTC`) +
+    kpi('BL à facturer', fmt(sumBy(blTodo, ttcOf)), `${blTodo.length} bon(s) de livraison en attente de facture (TTC)`) +
     kpi('Payé aux fournisseurs — ' + mois, fmt(sumBy(pays, p => +p.montant)), `${pays.length} paiement(s)` + (payEsp ? ` · dont ${fmt(payEsp)} en espèces` : '')) +
     kpi('Plus grosse dette', du[0] ? fmt(du[0].solde) : '—', du[0] ? `${esc(du[0].nom)} · ${pct(du[0].solde / dette * 100)} du total` : 'aucune dette') +
     kpi('Fournisseurs', C.length, `${du.length} à payer · ${doit.length} vous doivent`);
   const money = v => v ? fmt(v) : '';
   $('#fEtat').innerHTML = !C.length ? '<p class="empty">Aucun fournisseur : choisissez « ➕ Nouveau fournisseur… » dans la liste ci-dessus.</p>'
-    : `<table><thead><tr><th>Fournisseur</th><th class="t">Téléphone</th><th>Solde de départ</th><th>Facturé TTC</th><th>Payé + avoirs</th><th>Vous devez</th><th>Il vous doit</th></tr></thead><tbody>` +
-      C.map(c => `<tr class="click" data-four="${esc(c.nom)}"><td>${state.four === c.nom ? '<b>' + esc(c.nom) + '</b>' : esc(c.nom)}</td><td class="t">${esc(c.tel)}</td><td>${money(c.solde0)}</td><td>${money(c.fact)}</td><td>${money(c.regl)}</td><td class="bad">${c.solde > 0 ? fmt(c.solde) : ''}</td><td class="good">${c.solde < 0 ? fmt(-c.solde) : ''}</td></tr>`).join('') +
-      `</tbody><tfoot><tr><td colspan="5">Total</td><td>${fmt(sumBy(du, c => c.solde))}</td><td>${fmt(-sumBy(doit, c => c.solde))}</td></tr></tfoot></table>`;
+    : `<table><thead><tr><th>Fournisseur</th><th class="t">Téléphone</th><th>Solde de départ</th><th>Facturé TTC</th><th>Payé + avoirs</th><th>dont BL à facturer</th><th>Vous devez</th><th>Il vous doit</th></tr></thead><tbody>` +
+      C.map(c => `<tr class="click" data-four="${esc(c.nom)}"><td>${state.four === c.nom ? '<b>' + esc(c.nom) + '</b>' : esc(c.nom)}</td><td class="t">${esc(c.tel)}</td><td>${money(c.solde0)}</td><td>${money(c.fact)}</td><td>${money(c.regl)}</td><td>${money(c.blTodo)}</td><td class="bad">${c.solde > 0 ? fmt(c.solde) : ''}</td><td class="good">${c.solde < 0 ? fmt(-c.solde) : ''}</td></tr>`).join('') +
+      `</tbody><tfoot><tr><td colspan="5">Total</td><td>${fmt(sumBy(C, c => c.blTodo))}</td><td>${fmt(sumBy(du, c => c.solde))}</td><td>${fmt(-sumBy(doit, c => c.solde))}</td></tr></tfoot></table>`;
+  blCard();
   const c = db.fours.some(x => x.nom === state.four) && compte(state.four);
   $('#fDet').hidden = !c;
   if (!c) return;
@@ -1049,9 +1070,56 @@ function releveOut(kind, how) {
   // impression : seul le relevé sort, sur une page A4 en portrait (« Enregistrer en PDF » pour l'envoyer)
   $('#printArea').innerHTML = `<div class="rhead"><h1>${ENSEIGNE} — ${k.titre}</h1><div class="sub">Édité le ${fd(today())}</div></div>
     <p class="rinfo"><b>${k.qui} : ${esc(nom)}</b>${p.c.tel ? ' · Tél. ' + esc(p.c.tel) : ''}<br>Période : ${per}</p>${releveTable(kind, p, false)}<p class="rfin">${esc(fin)}</p>`;
+  printArea();
+}
+function printArea() { // n'imprime que #printArea (relevé, facture), en A4 portrait
   document.body.classList.add('prt');
   addEventListener('afterprint', () => document.body.classList.remove('prt'), { once: true });
   print();
+}
+
+// ---------- bons de livraison fournisseurs : à facturer, puis regroupés en facture ----------
+// Un BL est une charge « Fournisseur » (bl: 1) : il compte dès la livraison dans les charges et dans la dette.
+// « Générer la facture » ne fait que lui donner un n° et une date de facture (fac, facDate) : rien n'est compté deux fois.
+const blSel = new Set(); // BL cochés
+let blFacs = [];         // factures affichées (pour les boutons Imprimer / Annuler)
+function blCard() {
+  const v = state.blFour || '', st = state.blStat ?? 'todo';
+  $('#blFour').innerHTML = '<option value="">Tous les fournisseurs</option>' + [...db.fours].sort((a, b) => a.nom.localeCompare(b.nom, 'fr')).map(f => `<option${f.nom === v ? ' selected' : ''}>${esc(f.nom)}</option>`).join('');
+  $('#blStat').value = st;
+  const list = db.charges.filter(c => c.bl && (!v || c.four === v) && (!st || (st === 'todo') === !c.fac)).sort((a, b) => b.date.localeCompare(a.date));
+  for (const id of blSel) if (!db.charges.some(c => c.id === id && c.bl && !c.fac)) blSel.delete(id);
+  const todo = list.filter(c => !c.fac);
+  $('#blList').innerHTML = !list.length ? '<p class="empty">Aucun bon de livraison' + (st === 'todo' ? ' à facturer' : '') + '.</p>'
+    : `<table><thead><tr><th>${todo.length ? `<input type="checkbox" data-blall${todo.every(c => blSel.has(c.id)) ? ' checked' : ''} aria-label="Tout cocher">` : ''}</th><th>Date</th><th class="t">Fournisseur</th><th class="t">N° BL</th><th class="t">Catégorie</th><th>HT</th><th>TVA</th><th>TTC</th><th class="t">Statut</th><th></th></tr></thead><tbody>` +
+      list.map(c => `<tr><td>${c.fac ? '' : `<input type="checkbox" data-blsel="${esc(c.id)}"${blSel.has(c.id) ? ' checked' : ''} aria-label="Choisir ce BL">`}</td><td>${fd(c.date)}</td><td class="t">${esc(c.four)}</td><td class="t">${esc(c.ref)}</td><td class="t">${esc(c.cat)}</td>` +
+        `<td>${fmt(c.montant)}</td><td>${+c.tva || 0} %</td><td>${fmt(ttcOf(c))}</td><td class="t">${c.fac ? `Facture ${esc(c.fac)}${c.facDate ? ' du ' + fd(c.facDate) : ''}` : '<b>À facturer</b>'}</td>` +
+        `<td><button class="x" data-del="${esc(c.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
+      `</tbody><tfoot><tr><td colspan="5">Total (${list.length} BL)</td><td>${fmt(sumBy(list, c => +c.montant))}</td><td></td><td>${fmt(sumBy(list, ttcOf))}</td><td colspan="2"></td></tr></tfoot></table>`;
+  const sel = db.charges.filter(c => blSel.has(c.id)), f = $('#fFacBL'), many = new Set(sel.map(c => c.four)).size > 1;
+  f.hidden = !sel.length || many;
+  f.querySelector('button').textContent = `Générer la facture — ${sel.length} BL · ${fmt(sumBy(sel, ttcOf))} DH TTC` + (sel[0] ? ` · ${sel[0].four}` : '');
+  if (!f.date.value) f.date.value = today();
+  $('#blMsg').textContent = many ? 'Les BL cochés sont de plusieurs fournisseurs : une facture ne concerne qu\'un seul fournisseur.' : '';
+  // factures déjà générées : regroupées par fournisseur + n° de facture
+  const g = {};
+  for (const c of db.charges) if (c.bl && c.fac) (g[c.four + '\u0000' + c.fac] ??= []).push(c);
+  blFacs = Object.values(g).map(cs => ({ four: cs[0].four, num: cs[0].fac, date: cs[0].facDate || '', cs: cs.sort((a, b) => a.date.localeCompare(b.date)), ht: sumBy(cs, c => +c.montant), ttc: sumBy(cs, ttcOf) }))
+    .filter(F => !v || F.four === v).sort((a, b) => b.date.localeCompare(a.date));
+  $('#facList').innerHTML = !blFacs.length ? '<p class="empty">Aucune facture générée pour l\'instant.</p>'
+    : `<table><thead><tr><th>Date</th><th class="t">Fournisseur</th><th class="t">N° facture</th><th>BL</th><th>HT</th><th>TVA</th><th>TTC</th><th></th></tr></thead><tbody>` +
+      blFacs.map((F, i) => `<tr><td>${F.date ? fd(F.date) : ''}</td><td class="t">${esc(F.four)}</td><td class="t">${esc(F.num)}</td><td>${F.cs.length}</td><td>${fmt(F.ht)}</td><td>${fmt(F.ttc - F.ht)}</td><td>${fmt(F.ttc)}</td>` +
+        `<td style="white-space:nowrap"><button class="btn sm" data-facprint="${i}">Imprimer / PDF</button> <button class="btn sm" data-facundo="${i}">Annuler</button></td></tr>`).join('') + '</tbody></table>';
+}
+function facPrint(F) {
+  const tel = db.fours.find(f => f.nom === F.four)?.tel;
+  $('#printArea').innerHTML = `<div class="rhead"><h1>${ENSEIGNE} — Facture fournisseur n° ${esc(F.num)}</h1><div class="sub">Récapitulatif des bons de livraison<br>Édité le ${fd(today())}</div></div>
+    <p class="rinfo"><b>Fournisseur : ${esc(F.four)}</b>${tel ? ' · Tél. ' + esc(tel) : ''}<br>Facture n° ${esc(F.num)}${F.date ? ' du ' + fd(F.date) : ''} · ${F.cs.length} bon(s) de livraison</p>
+    <table><thead><tr><th>Date BL</th><th class="t">N° BL</th><th class="t">Catégorie</th><th>Montant HT</th><th>TVA</th><th>Montant TVA</th><th>Total TTC</th></tr></thead><tbody>` +
+    F.cs.map(c => `<tr><td>${fd(c.date)}</td><td class="t">${esc(c.ref)}</td><td class="t">${esc(c.cat)}</td><td>${fmt(c.montant)}</td><td>${+c.tva || 0} %</td><td>${fmt(ttcOf(c) - c.montant)}</td><td>${fmt(ttcOf(c))}</td></tr>`).join('') +
+    `</tbody><tfoot><tr><td colspan="3">Total</td><td>${fmt(F.ht)}</td><td></td><td>${fmt(F.ttc - F.ht)}</td><td>${fmt(F.ttc)}</td></tr></tfoot></table>
+    <p class="rfin">Total de la facture : ${fmt(F.ttc)} DH TTC</p>`;
+  printArea();
 }
 
 // Compte client : solde > 0 = le client vous doit, < 0 = vous lui devez (il a payé d'avance)
@@ -1247,7 +1315,8 @@ function toWorkbook() {
   const L = ledger();
   return book([
     ['Journal', [['Date', ...F.map(f => f[1]), 'Observation'], ...Object.keys(db.jours).sort().map(d => [d, ...F.map(f => +db.jours[d][f[0]] || 0), db.jours[d].obs || ''])], [12, ...F.map(() => 12), 30]],
-    ['Charges', [['Date', 'Catégorie', 'Libellé', 'Montant', 'Source', 'Fournisseur', 'Référence', 'TVA %'], ...[...db.charges].sort((a, b) => a.date.localeCompare(b.date)).map(c => [c.date, c.cat, c.lib, c.montant, c.source, c.four || '', c.ref || '', c.tva ?? ''])], [12, 22, 30, 12, 11, 22, 14, 8]],
+    ['Charges', [['Date', 'Catégorie', 'Libellé', 'Montant', 'Source', 'Fournisseur', 'Référence', 'TVA %', 'BL', 'N° facture', 'Date facture'], ...[...db.charges].sort((a, b) => a.date.localeCompare(b.date))
+      .map(c => [c.date, c.cat, c.lib, c.montant, c.source, c.four || '', c.ref || '', c.tva ?? '', c.bl ? 1 : '', c.fac || '', c.facDate || ''])], [12, 22, 30, 12, 11, 22, 14, 8, 5, 14, 12]],
     ['Fournisseurs', [['Nom', 'Téléphone', 'Solde de départ', 'Solde actuel'], ...db.fours.map(f => [f.nom, f.tel, f.solde0, compte(f.nom).solde])], [26, 16, 14, 14]],
     ['Clients', [['Nom', 'Téléphone', 'Solde de départ', 'Solde actuel'], ...db.clients.map(c => [c.nom, c.tel, c.solde0, compteClient(c.nom).solde])], [26, 16, 14, 14]],
     ['Crédits clients', [['Date', 'Client', 'Type', 'Montant', 'Mode', 'Détail'], ...[...db.cops].sort((a, b) => a.date.localeCompare(b.date)).map(o => [o.date, o.client, o.type, o.montant, o.mode, o.note])], [12, 26, 14, 12, 10, 30]],
@@ -1276,7 +1345,7 @@ function fromWorkbook(wb) {
   for (const n of nd.cops.map(o => o.client)) if (n && !nd.clients.some(c => c.nom === n)) nd.clients.push({ nom: n, tel: '', solde0: 0 });
   for (const r of C) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.charges.push({ id: uid(), date: d, cat: String(r['Catégorie'] || 'Autre'), lib: String(r['Libellé'] || ''), montant: num(r.Montant),
     source: ['Banque', 'Fournisseur'].includes(r.Source) ? r.Source : 'Caisse', four: String(r.Fournisseur || '').trim(), ref: String(r['Référence'] || ''),
-    ...(r['TVA %'] === '' || r['TVA %'] == null ? {} : { tva: num(r['TVA %']) }) }); }
+    ...(r['TVA %'] === '' || r['TVA %'] == null ? {} : { tva: num(r['TVA %']) }), ...(r.BL ? { bl: 1, fac: String(r['N° facture'] || ''), facDate: toIso(r['Date facture']) || '' } : {}) }); }
   for (const r of PA || []) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.paiements.push({ id: uid(), date: d, four: String(r.Fournisseur || '').trim(), montant: num(r.Montant), mode: r.Mode === 'Banque' ? 'Banque' : 'Caisse', ref: String(r['Référence'] || '') }); }
   nd.fours = (FO || []).map(r => ({ nom: String(r.Nom || '').trim(), tel: String(r['Téléphone'] || ''), solde0: num(r['Solde de départ']) })).filter(f => f.nom);
   for (const n of [...nd.charges.map(c => c.four), ...nd.paiements.map(p => p.four)]) if (n && !nd.fours.some(f => f.nom === n)) nd.fours.push({ nom: n, tel: '', solde0: 0 });
@@ -1404,11 +1473,24 @@ document.addEventListener('change', async e => {
     if (n) { state.client = n; if (state.page === 'clients') clients(); }
   }
   if (e.target.form?.matches('.fClient') && e.target.name === 'type') e.target.form.mode.hidden = e.target.value === 'Crédit';
+  // bons de livraison : filtres et cases à cocher
+  if (e.target.id === 'blFour' || e.target.id === 'blStat') { state[e.target.id] = e.target.value; return blCard(); }
+  if (e.target.dataset?.blsel) { blSel[e.target.checked ? 'add' : 'delete'](e.target.dataset.blsel); return blCard(); }
+  if (e.target.hasAttribute?.('data-blall')) { for (const el of document.querySelectorAll('[data-blsel]')) blSel[e.target.checked ? 'add' : 'delete'](el.dataset.blsel); return blCard(); }
   const per = e.target.dataset?.per;
   if (per) { state[per] = e.target.value; render(); }
   const kc = e.target.dataset?.cset, cl = kc && db.clients.find(x => x.nom === state.client);
   if (cl) { const v = e.target.value; if (await guard(`Modifier ${kc === 'tel' ? 'le téléphone' : 'le solde de départ'} de ${cl.nom} ?`, 'Modifier', 'Modifier un client')) { cl[kc] = kc === 'tel' ? v.trim() : num(v); save(); } return render(); }
 });
+$('#fFacBL').onsubmit = e => {
+  e.preventDefault();
+  const f = e.target, num = f.num.value.trim(), sel = db.charges.filter(c => blSel.has(c.id) && c.bl && !c.fac);
+  if (!sel.length) return;
+  if (new Set(sel.map(c => c.four)).size > 1) return alert('Cochez les BL d\'un seul fournisseur.');
+  if (!num || !f.date.value) return alert('Indiquez le n° et la date de la facture.');
+  for (const c of sel) { c.fac = num; c.facDate = f.date.value; }
+  blSel.clear(); f.num.value = ''; save(); render(); flash(`Facture ${num} : ${sel.length} BL regroupés ✓`);
+};
 $('#fCat').g.innerHTML = GRPS.map(g => `<option${g === DEF_GRP ? ' selected' : ''}>${esc(g)}</option>`).join('');
 $('#fCat').onsubmit = async e => {
   e.preventDefault();
@@ -1432,7 +1514,7 @@ $('#fOp').onsubmit = e => {
   const op = { id: uid(), date: f.date.value, four, ref: f.ref.value.trim() };
   if (type === 'Paiement') db.paiements.push({ ...op, montant: m, mode: f.mode.value });
   else if (f.cat.value === NEW_CAT) return alert('Choisissez une catégorie.');
-  else db.charges.push({ ...op, cat: f.cat.value, lib: type, montant: type === 'Avoir' ? -m : m, tva: +f.tva.value, source: 'Fournisseur' }); // HT ; avoir = charge négative
+  else db.charges.push({ ...op, cat: f.cat.value, lib: type, montant: type === 'Avoir' ? -m : m, tva: +f.tva.value, source: 'Fournisseur', ...(type === 'BL' ? { bl: 1, fac: '' } : {}) }); // HT ; avoir = charge négative
   state.four = four; save(); f.ref.value = ''; f.montant.value = ''; render();
 };
 $('#dDate').onchange = e => setDate(e.target.value);
@@ -1487,6 +1569,10 @@ document.addEventListener('click', async e => {
   if (pay) { if (await guard(`Supprimer le paiement de ${fmt(pay.montant)} DH à ${pay.four} du ${fd(pay.date)} ?`)) { db.paiements = db.paiements.filter(x => x !== pay); save(); render(); } return; }
   const df = e.target.closest('[data-delfour]');
   if (df) { if (await guard(`Supprimer le fournisseur « ${df.dataset.delfour} » ?`)) { db.fours = db.fours.filter(x => x.nom !== df.dataset.delfour); state.four = null; save(); render(); } return; }
+  const fpr = e.target.closest('[data-facprint]');
+  if (fpr) return facPrint(blFacs[+fpr.dataset.facprint]);
+  const fun = e.target.closest('[data-facundo]'), F = fun && blFacs[+fun.dataset.facundo];
+  if (F) { if (await guard(`Annuler la facture ${F.num} de ${F.four} ? Ses ${F.cs.length} BL redeviennent « à facturer ».`, 'Annuler la facture', 'Modifier une facture')) { for (const c of F.cs) { c.fac = ''; delete c.facDate; } save(); render(); } return; }
   const rl = e.target.closest('[data-releve]');
   if (rl) return releveOut(rl.dataset.kind, rl.dataset.releve);
   const dco = e.target.closest('[data-delcop]'), cop = dco && db.cops.find(x => x.id === dco.dataset.delcop);
@@ -1496,7 +1582,7 @@ document.addEventListener('click', async e => {
   const cr = e.target.closest('[data-client]');
   if (cr) { state.client = cr.dataset.client; document.querySelector('#p-clients .fClient').elements.client.value = state.client; clients(); return $('#clDet').scrollIntoView({ behavior: 'smooth' }); }
   const fr = e.target.closest('[data-four]');
-  if (fr) { state.four = fr.dataset.four; $('#fOp').elements.four.value = state.four; fournisseurs(); return $('#fDet').scrollIntoView({ behavior: 'smooth' }); }
+  if (fr) { state.four = state.blFour = fr.dataset.four; $('#fOp').elements.four.value = state.four; fournisseurs(); return $('#fDet').scrollIntoView({ behavior: 'smooth' }); }
   const del = e.target.closest('[data-del]'), day = e.target.closest('[data-day]'), mo = e.target.closest('[data-month]');
   if (del) {
     const c = db.charges.find(x => x.id === del.dataset.del);
@@ -1542,6 +1628,11 @@ if (location.search.includes('test')) {
   checks['Crédit client par nom'] = cc.solde === 220 && cx.credit === 220 && cx.recu === 50 && cx.creditPaye === 80 && cx.caTTC === 100;
   const MG = { ...DEF(), jours: { '2026-09-01': { esp: 10, creditClient: 70, creditPaye: 20 } } }; migrateCredit(MG);
   checks['Migration crédit sans nom'] = compteClient(SANS_NOM, MG).solde === 50 && !('creditClient' in MG.jours['2026-09-01']);
+  // 2 BL (100 HT à 20 % + 50 HT à 0 %) : dus 170 TTC dès la livraison ; les facturer ne change ni la dette ni les charges
+  const BX = { ...DEF(), fours: [{ nom: 'F2', solde0: 0 }], charges: [{ date: '2026-10-02', cat: 'Boucherie', montant: 100, tva: 20, source: 'Fournisseur', four: 'F2', bl: 1, fac: '' },
+    { date: '2026-10-05', cat: 'Boucherie', montant: 50, tva: 0, source: 'Fournisseur', four: 'F2', bl: 1, fac: '' }] };
+  const b0 = compte('F2', BX); BX.charges.forEach(c => { c.fac = 'F-1'; c.facDate = '2026-10-31'; }); const b1 = compte('F2', BX);
+  checks['Bons de livraison'] = b0.solde === 170 && b0.blTodo === 170 && b1.solde === 170 && b1.blTodo === 0 && sumBy(ledger(BX), x => x.charges) === 150;
   const H = ledger({ ...FIX, params: { ...FIX.params, tvaVentes: 10 } })[0];   // ventes saisies TTC, CA suivi HT
   checks['CA HT'] = H.caTTC === 1800 && Math.abs(H.ca * 1.1 - 1800) < 1e-9 && Math.abs(H.ca + H.tvaCol - 1800) < 1e-9;
   const B = bilanRows(['2026-10']), bv = l => B.find(x => x.label === l).vals[0];
