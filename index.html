@@ -90,8 +90,8 @@ fieldset{border:0;padding:0;margin:0 0 18px}legend{font-weight:600;margin-bottom
 .formula{font-size:12px;color:var(--muted);margin:2px 0 14px}
 .kv{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--grid)}
 .kv b{font-variant-numeric:tabular-nums}.kv small{display:block;color:var(--muted);font-size:11.5px}
-.addc{display:grid;grid-template-columns:1.2fr 1.6fr 1fr .9fr auto;gap:8px;margin-bottom:12px}
-.addc.wd{grid-template-columns:auto 1.2fr 1.6fr 1fr .9fr auto}
+.addc{display:grid;grid-template-columns:1.2fr 1.5fr 1fr .8fr .9fr auto;gap:8px;margin-bottom:12px}
+.addc.wd{grid-template-columns:auto 1.2fr 1.5fr 1fr .8fr .9fr auto}
 .addc.mv{grid-template-columns:auto auto 1.6fr 1fr auto}
 .addf{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:12px}
 .tw{overflow-x:auto}
@@ -116,6 +116,11 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
 .rhead{display:none;align-items:flex-end;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:12px}
 .rhead h1{font-size:19px;line-height:1.1}.rhead .sub{color:var(--ink2);font-size:11px;margin-left:auto;text-align:right}
 .help{font-size:13.5px;color:var(--ink2)}
+.jsave{display:flex;align-items:center;gap:12px;margin-top:16px}
+.unsaved{display:flex;align-items:center;justify-content:space-between;gap:8px;background:rgba(237,161,0,.14);border:1px solid rgba(237,161,0,.45);border-radius:8px;padding:6px 6px 6px 10px;margin-bottom:12px;font-size:13px}
+dialog{border:1px solid var(--border);border-radius:12px;padding:18px;background:var(--surface);color:var(--ink);width:min(360px,calc(100% - 32px))}
+dialog::backdrop{background:rgba(0,0,0,.35)}dialog p{margin:0 0 10px;font-size:14px}dialog input{width:100%;margin-bottom:14px}
+.dlgb{display:flex;gap:8px;justify-content:flex-end}
 .cg{margin-bottom:10px}.cg>b{display:block;font-size:13px;margin-bottom:6px}.cg small{color:var(--muted);font-weight:400}
 /* bilan « TABLE M » : mêmes blocs de couleur que la feuille du client */
 .bil td:first-child{white-space:normal;min-width:190px}.bil th.click{cursor:pointer}
@@ -198,7 +203,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
     <button class="btn" id="dToday">Aujourd'hui</button>
   </div>
   <div class="saisie">
-    <form id="fJour" class="card" autocomplete="off" onsubmit="return false"></form>
+    <form id="fJour" class="card" autocomplete="off"></form>
     <aside class="card live" id="live"></aside>
   </div>
   <div class="card" style="margin-top:16px"><h2>Crédit clients de ce jour</h2>
@@ -216,7 +221,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
     <form class="fCharge addc"><input type="hidden" name="date">
       <select name="cat" aria-label="Catégorie" required></select>
       <input name="lib" placeholder="Libellé (ex : légumes marché)">
-      <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant DH" required>
+      <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant TTC" required>
+      <select name="tva" aria-label="TVA"><option value="0" selected>TVA 0 %</option><option value="7">TVA 7 %</option><option value="10">TVA 10 %</option><option value="14">TVA 14 %</option><option value="20">TVA 20 %</option></select>
       <select name="source"><option>Caisse</option><option>Banque</option></select>
       <button class="btn pri">Ajouter</button>
     </form>
@@ -232,11 +238,13 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
       <input type="date" name="date" required aria-label="Date">
       <select name="cat" aria-label="Catégorie" required></select>
       <input name="lib" placeholder="Libellé">
-      <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant DH" required>
+      <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant TTC" required>
+      <select name="tva" aria-label="TVA"><option value="0" selected>TVA 0 %</option><option value="7">TVA 7 %</option><option value="10">TVA 10 %</option><option value="14">TVA 14 %</option><option value="20">TVA 20 %</option></select>
       <select name="source"><option>Caisse</option><option>Banque</option></select>
       <button class="btn pri">Ajouter</button>
     </form>
-    <p class="help" style="margin:0">« Caisse » = payé avec l'argent de la caisse (compté dans la colonne <b>Dépense</b> du jour). « Banque » = payé par virement / chèque. Les achats à crédit (factures fournisseurs) se saisissent dans l'onglet <b>Fournisseurs</b>.</p>
+    <p class="help" style="margin:0">Tapez le montant payé (TTC) et son taux de TVA : la charge est enregistrée <b>HT</b> (TVA 0 % = pas de TVA, ex. marché, salaires).
+      « Caisse » = payé avec l'argent de la caisse : le montant sort du Reste en caisse (colonne <b>Dépense</b> du jour). « Banque » = payé par virement / chèque. Les achats à crédit (factures fournisseurs) se saisissent dans l'onglet <b>Fournisseurs</b>.</p>
   </div>
   <div class="card"><h2>Par catégorie</h2><div id="chCat"></div></div>
   <div class="card"><h2>Liste des charges</h2><div class="tw" id="chList"></div></div>
@@ -277,7 +285,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
       <button class="btn pri">Ajouter</button>
     </form>
     <p class="help" style="margin:0"><b>Facture</b> : achat à crédit, saisi <b>HT</b> avec son taux de TVA — le HT compte dans les charges du mois, le TTC (HT + TVA) est ce que vous devez.
-      <b>Paiement</b> : vous payez le fournisseur — en espèces, il compte dans la colonne Dépense du jour comme une charge payée en caisse (jamais compté deux fois dans les charges).
+      <b>Paiement</b> : vous payez le fournisseur — en espèces, il sort de la caisse (colonne Dépense du jour), sans être compté une 2e fois dans les charges.
       <b>Avoir</b> : retour ou remise du fournisseur — diminue ce que vous devez et les charges. Si vous payez plus que les factures (avance), c'est le fournisseur qui vous doit.</p>
   </div>
   <div class="card"><h2>État des fournisseurs<span class="noprint"> — cliquez une ligne pour voir le relevé</span></h2><div class="tw" id="fEtat"></div></div>
@@ -334,6 +342,16 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
       <label class="btn" style="display:inline-block;margin-top:8px">Restaurer depuis une copie<input type="file" id="bLoad" accept=".xlsx,.xls" hidden></label>
     </div>
   </div>
+  <div class="card" style="margin-top:16px"><h2>Mot de passe</h2>
+    <p class="help" id="pwdInfo" style="margin-top:0"></p>
+    <form id="fPwd" style="display:flex;flex-wrap:wrap;gap:8px;max-width:640px" autocomplete="off">
+      <input type="password" name="p1" placeholder="Nouveau mot de passe" autocomplete="new-password" required style="flex:1 1 180px" aria-label="Nouveau mot de passe">
+      <input type="password" name="p2" placeholder="Confirmer" autocomplete="new-password" required style="flex:1 1 180px" aria-label="Confirmer le mot de passe">
+      <button class="btn pri">Enregistrer</button>
+    </form>
+    <button class="btn" id="pwdOff" style="margin-top:8px">Supprimer le mot de passe</button>
+    <p class="help">Il protège contre les erreurs et les modifications par le personnel. Oublié ? Effacez la ligne « pwd » de la feuille Paramètres du fichier Excel.</p>
+  </div>
   <div class="card" style="margin-top:16px"><h2>Catégories de charges</h2>
     <p class="help" style="margin-top:0">Ce sont les lignes du bilan (TABLE M), rangées par groupe, et la liste « Catégorie » des charges.
       Pour changer le groupe d'une catégorie, ajoutez-la à nouveau avec le bon groupe. Supprimer une catégorie ne change pas les charges déjà saisies.</p>
@@ -345,12 +363,14 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
 <div id="printArea"></div>
 </div>
 <div id="tip"></div>
+<dialog id="pwdDlg"><form method="dialog"><p></p><input type="password" autocomplete="current-password" aria-label="Mot de passe">
+  <div class="dlgb"><button type="button" class="btn" onclick="this.closest('dialog').close('cancel')">Annuler</button><button class="btn pri" value="ok">Valider</button></div></form></dialog>
 
 <script>
 const KEY = 'suiviVentes.v1', RESP = 'Noureddine';
 // [clé, en-tête Excel, groupe, aide]
 const F = [
-  ['esp', 'Espèce', 'enc', 'Argent compté en caisse (dirhams)'],
+  ['esp', 'Espèce', 'enc', 'Ventes payées en espèces (dirhams), avant de payer les dépenses'],
   ['eur', 'Espèce Euro (€)', 'enc', 'Euros reçus, en € — comptés dans le CA au taux des paramètres'],
   ['cb', 'Carte Crédit', 'enc', 'Total TPE'],
   ['vir', 'Vir/Chéq', 'enc', 'Virements et chèques'],
@@ -387,6 +407,7 @@ const defCats = () => ({ cats: Object.values(CATS).flat(), catGrp: Object.fromEn
 const grpOf = c => GRPS.includes(db.catGrp[c]) ? db.catGrp[c] : DEF_GRP;
 // CA et factures étant HT, la TVA versée à la DGI n'est pas une charge (sinon comptée deux fois)
 const TVA_CAT = 'TVA', isCharge = c => c.cat !== TVA_CAT;
+const ttcOf = c => cent((+c.montant || 0) * (1 + (+c.tva || 0) / 100)); // charges et factures : montant HT + TVA
 // Données d'avant les groupes : lignes de la TABLE M + anciennes catégories encore utilisées ou ajoutées à la main
 const OLD_CATS = ['Achats marchandises', 'Salaires', 'Loyer', 'Électricité / Eau', 'Gaz', 'Fournitures', 'Transport', 'Entretien', 'Impôts / Taxes', 'Autre'];
 function migrateCats(cats, charges) {
@@ -476,10 +497,14 @@ function demoData() {
   const t = today(), months = [t.slice(0, 7)], owed = {}, bal = {};    // owed : facturé depuis le dernier paiement ; bal : dû par client
   let eurHeld = d.params.euro, cash = d.params.soldeInitial;           // euros en caisse ; argent en caisse (DH, euros compris)
   while (months.length < 6 || months[0] > t.slice(0, 4) + '-01') months.unshift(prevYm(months[0]));
-  const C = (date, cat, montant, source = 'Caisse', x = {}) => date <= t && d.charges.push({ id: uid(), date, cat, lib: '', montant: Math.round(montant), source, ...x });
+  const C = (date, cat, montant, source = 'Caisse', x = {}) => {
+    if (date > t) return;
+    montant = Math.round(montant); if (source === 'Caisse') cash -= montant;           // payé en caisse : sort de l'argent en caisse
+    d.charges.push({ id: uid(), date, cat, lib: '', montant, source, ...x });
+  };
   // factures saisies HT avec leur taux de TVA ; le fournisseur attend le TTC
   const fac = (date, four, cat, m, ref, tva, lib = 'Facture') => { owed[four] = (owed[four] || 0) + m * (1 + tva / 100); C(date, cat, m, 'Fournisseur', { four, ref, lib, tva }); };
-  const pay = (date, four, m, mode, ref) => { m = Math.round(m); if (m > 0) { owed[four] = (owed[four] || 0) - m; d.paiements.push({ id: uid(), date, four, montant: m, mode, ref }); } };
+  const pay = (date, four, m, mode, ref) => { m = Math.round(m); if (m > 0) { owed[four] = (owed[four] || 0) - m; if (mode === 'Caisse') cash -= m; d.paiements.push({ id: uid(), date, four, montant: m, mode, ref }); } };
   for (const ym of months) {
     const mo = +ym.slice(5), mf = MF[mo - 1];
     for (const iso of daysOf(ym)) {
@@ -488,9 +513,9 @@ function demoData() {
       const ref = p => p + iso.slice(5).replace('-', '');
       // charges fixes et ponctuelles : dues même si le commerce est fermé ce jour-là
       if (day === 5) {
-        for (const [c, v] of [['Les Salaires', mo >= 7 ? 13200 : 11800], ['Loyer', 6500], ['Cotisation CNSS', mo >= 7 ? 1100 : 980], ['Honoraires comptable', 1500],
-          ['Location machine à café', 900], ['Fibre optique, internet & téléphone', 450], ['Frais bancaires & Commission', 180]]) C(iso, c, v, 'Banque');
-        C(iso, 'Électricité', 1000 + 900 * (mf - .78) + rnd() * 200, 'Banque'); C(iso, 'Eau', 320 + rnd() * 140, 'Banque'); C(iso, 'Gaz', 520 + rnd() * 160);
+        for (const [c, v, tva] of [['Les Salaires', mo >= 7 ? 13200 : 11800, 0], ['Loyer', 6500, 0], ['Cotisation CNSS', mo >= 7 ? 1100 : 980, 0], ['Honoraires comptable', 1500, 20],
+          ['Location machine à café', 900, 20], ['Fibre optique, internet & téléphone', 450, 20], ['Frais bancaires & Commission', 180, 0]]) C(iso, c, v, 'Banque', tva ? { tva } : {});
+        C(iso, 'Électricité', 1000 + 900 * (mf - .78) + rnd() * 200, 'Banque', { tva: 14 }); C(iso, 'Eau', 320 + rnd() * 140, 'Banque', { tva: 7 }); C(iso, 'Gaz', 520 + rnd() * 160);
         if (mo % 3 === 1) { // TVA du trimestre précédent : collectée (ventes TTC à 10 %) − récupérable (factures)
           const q = [prevYm(ym), prevYm(prevYm(ym)), prevYm(prevYm(prevYm(ym)))], inQ = k => q.includes(k.slice(0, 7));
           const due = sumBy(Object.keys(d.jours).filter(inQ), k => { const j = d.jours[k]; return (j.esp + j.cb + j.vir + j.glovoLigne + j.creditClient) / 11; })
@@ -509,7 +534,7 @@ function demoData() {
       if (iso.slice(5) === '09-20') fac(iso, 'Emballages Pro', 'Emballage (sacs, boîtes, couverts)', 1800, 'EP-0920', 20);
       if (iso.slice(5) === '09-25') d.cops.push({ id: uid(), date: iso, client: 'Agence Voyages Sud', type: 'Remboursement', montant: 2500, mode: 'Banque', note: 'Avance pour un groupe' }) && (bal['Agence Voyages Sud'] = (bal['Agence Voyages Sud'] || 0) - 2500); // payé d'avance
       if (wd === 1 && rnd() < .5) continue;                             // fermé certains lundis
-      d.jours[iso] = { esp: r(.52), cb: r(.3), vir: rnd() < .2 ? r(.08) : 0, glovoEsp: r(.04), glovoLigne: r(.11),
+      d.jours[iso] = { esp: r(.72), cb: r(.3), vir: rnd() < .2 ? r(.08) : 0, glovoEsp: r(.04), glovoLigne: r(.11),
         remise: rnd() < .4 ? r(.012) : 0,
         offert: rnd() < .3 ? r(.008) : 0, perte: rnd() < .15 ? r(.01) : 0, annul: rnd() < .1 ? r(.006) : 0,
         versement: 0, obs: wd === 6 ? 'Versement hebdomadaire' : '' };
@@ -596,7 +621,7 @@ async function newFile() {
 }
 async function openFile() {
   if (demoBlock()) return;
-  if ((db.charges.length || db.mvts.length || db.fours.length || db.clients.length || Object.keys(db.jours).length) && !confirm('Les données du fichier vont remplacer celles affichées. Continuer ?')) return;
+  if ((db.charges.length || db.mvts.length || db.fours.length || db.clients.length || Object.keys(db.jours).length) && !(confirm('Les données du fichier vont remplacer celles affichées. Continuer ?') && await guard())) return;
   try { const [h] = await showOpenFilePicker(XLSX_PICK); await useFile(h, 'ouvrir'); } catch (e) { fail(e); }
 }
 async function reconnect() {
@@ -639,7 +664,7 @@ function ledger(d = db) {
     for (const [k] of F) r[k] = +j[k] || 0;
     // fournisseur payé en espèces : sort de la caisse comme une dépense, sans être une charge de plus (la facture l'est déjà)
     r.payF = sumBy(payByDate[date] || [], p => +p.montant || 0);
-    r.dep = sumBy(ch.filter(c => c.source === 'Caisse'), c => +c.montant || 0) + r.payF;
+    r.dep = sumBy(ch.filter(c => c.source === 'Caisse'), ttcOf) + r.payF;                // argent sorti de la caisse (TTC)
     r.charges = sumBy(ch.filter(isCharge), c => +c.montant || 0);          // factures fournisseurs : HT
     r.tvaPayee = sumBy(ch.filter(c => !isCharge(c)), c => +c.montant || 0); // TVA versée à la DGI : pas une charge
     r.tvaRec = sumBy(ch, c => (+c.montant || 0) * (+c.tva || 0) / 100);   // TVA des factures, récupérable
@@ -648,14 +673,14 @@ function ledger(d = db) {
     const co = coByDate[date] || [], rb = co.filter(o => o.type !== 'Crédit');
     r.creditClient = sumBy(co.filter(o => o.type === 'Crédit'), o => +o.montant || 0);
     r.creditPaye = sumBy(rb, o => +o.montant || 0); r.creditPayeEsp = sumBy(rb.filter(o => o.mode !== 'Banque'), o => +o.montant || 0);
-    r.caTTC = r.esp + r.eurDh + r.cb + r.vir + r.glovoLigne + r.creditClient + r.dep; // colonne B
+    r.caTTC = r.esp + r.eurDh + r.cb + r.vir + r.glovoLigne + r.creditClient; // ventes du jour (Espèce = avant toute dépense)
     r.ca = r.caTTC / kHT; r.tvaCol = r.caTTC - r.ca;                       // le CA est suivi HT
     r.recu = r.esp + r.eurDh + r.creditPayeEsp;                           // colonne P
     eur += r.eur - r.versEur; r.eurCaisse = eur;                          // euros en caisse, en €
     const mv = mvByDate[date] || [];                                      // entrées / sorties : hors CA
     r.entree = sumBy(mv.filter(m => m.type === 'Entrée'), m => +m.montant || 0);
     r.sortie = sumBy(mv.filter(m => m.type !== 'Entrée'), m => +m.montant || 0);
-    reste += r.recu - r.versement - r.versEurDh + r.entree - r.sortie; r.reste = reste; // colonne R
+    reste += r.recu - r.dep - r.versement - r.versEurDh + r.entree - r.sortie; r.reste = reste; // colonne R
     credit += r.creditClient - r.creditPaye; r.credit = credit;
     return r;
   });
@@ -757,7 +782,7 @@ function stats(ym) {
     pertes: t.remise + t.offert + t.perte + t.annul,
     // projection : rythme des jours écoulés étendu au mois entier (mois en cours uniquement)
     proj: ym === td.slice(0, 7) && elapsed > 0 && elapsed < all.length ? t.ca / elapsed * all.length : null,
-    mix: [['Espèce', t.esp], ['Espèce en euros', t.eurDh], ['Carte crédit', t.cb], ['Virement / Chèque', t.vir], ['Glovo en ligne', t.glovoLigne], ['Crédit client', t.creditClient], ['Dépenses en caisse', t.dep]],
+    mix: [['Espèce', t.esp], ['Espèce en euros', t.eurDh], ['Carte crédit', t.cb], ['Virement / Chèque', t.vir], ['Glovo en ligne', t.glovoLigne], ['Crédit client', t.creditClient]],
     cumA: cum(rows, elapsed), cumP: cum(pRows, daysOf(prev).length),
   };
 }
@@ -789,6 +814,26 @@ function insights(s) {
 const insList = o => o.length
   ? `<ul class="ins">${o.map(i => `<li><span class="ic ${i.k}">${i.k === 'up' ? '▲' : i.k === 'dn' ? '▼' : '•'}</span><span><b>${i.h}</b>${i.t ? ' — ' + i.t : ''}</span></li>`).join('')}</ul>`
   : '<p class="empty">Aucune vente saisie pour ce mois : les constats apparaîtront dès la première journée saisie.</p>';
+
+// ---------- mot de passe (facultatif) pour supprimer ou modifier une saisie déjà enregistrée ----------
+// ponytail: protège des erreurs et du personnel, pas de quelqu'un qui ouvre le fichier Excel ; une fois tapé, déverrouillé UNLOCK ms
+const UNLOCK = 5 * 60 * 1000;
+let unlockedUntil = 0;
+const sha = async s => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('suiviVentes:' + s)))].map(b => b.toString(16).padStart(2, '0')).join('');
+function askPwd(msg) {
+  const d = $('#pwdDlg'), i = d.querySelector('input');
+  d.querySelector('p').textContent = msg; i.value = ''; d.returnValue = '';
+  d.showModal(); i.focus();
+  return new Promise(res => d.addEventListener('close', () => res(d.returnValue === 'ok' ? i.value : null), { once: true }));
+}
+async function guard() {
+  if (!db.pwd || Date.now() < unlockedUntil) return true;
+  const p = await askPwd('Mot de passe requis pour supprimer ou modifier une saisie enregistrée :');
+  if (p == null) return false;
+  if (await sha(p) !== db.pwd) { alert('Mot de passe incorrect.'); return false; }
+  unlockedUntil = Date.now() + UNLOCK;
+  return true;
+}
 
 // ---------- pages ----------
 const state = { page: location.hash.slice(1), ym: today().slice(0, 7), date: today(), year: new Date().getFullYear(), four: null, client: null, du: '', au: '' }; // du / au : période des relevés
@@ -824,26 +869,30 @@ function dash() {
 function buildJourForm() {
   $('#fJour').innerHTML = GROUPS.map(([g, title]) => `<fieldset><legend>${title}</legend><div class="flds">` +
     F.filter(f => f[2] === g).map(([k, l, , h]) => `<label class="fld"><span>${l}</span><input name="${k}" type="number" step="0.01" inputmode="decimal" placeholder="0,00">${h ? `<small>${h}</small>` : ''}</label>`).join('') +
-    '</div></fieldset>').join('') + `<label class="fld"><span>Observation</span><textarea name="obs" rows="2"></textarea></label>`;
+    '</div></fieldset>').join('') + `<label class="fld"><span>Observation</span><textarea name="obs" rows="2"></textarea></label>
+    <div class="jsave"><button class="btn pri">Enregistrer la journée</button><span class="tl" id="jState"></span></div>`;
 }
 function saisie() {
   $('#dDate').value = state.date;
-  const j = db.jours[state.date] || {};
-  for (const el of $('#fJour').elements) el.value = j[el.name] || '';
+  const j = draft || db.jours[state.date] || {};
+  for (const el of $('#fJour').elements) if (el.name) el.value = j[el.name] || '';
   document.querySelector('#p-saisie .fCharge [name=date]').value = state.date;
   document.querySelector('#p-saisie .fClient [name=date]').value = state.date;
   live();
 }
 function live() {
-  const L = ledger(), r = L.find(x => x.date === state.date) || Object.fromEntries(NUM.map(k => [k, 0])), ym = state.date.slice(0, 7);
+  // aperçu : la saisie pas encore enregistrée est déjà prise en compte dans les calculs
+  const L = ledger(draft ? { ...db, jours: { ...db.jours, [state.date]: draft } } : db), r = L.find(x => x.date === state.date) || Object.fromEntries(NUM.map(k => [k, 0])), ym = state.date.slice(0, 7);
   const st = at(L, state.date), mtd = sumBy(monthRows(L, ym).filter(x => x.date <= state.date), x => x.ca);
-  $('#live').innerHTML = `<div class="tl">CA HT du ${dLabel(state.date)}</div><div class="big">${fmt(r.ca)} <small style="font-size:16px">DH</small></div>
+  $('#jState').textContent = draft ? '⚠ Modifications non enregistrées' : db.jours[state.date] ? 'Journée enregistrée ✓' : '';
+  $('#live').innerHTML = (draft ? `<div class="unsaved">⚠ Saisie non enregistrée <button class="btn pri" data-savejour>Enregistrer</button></div>` : '') +
+    `<div class="tl">CA HT du ${dLabel(state.date)}</div><div class="big">${fmt(r.ca)} <small style="font-size:16px">DH</small></div>
     <div class="formula">TTC ${fmt(r.caTTC)} DH ÷ ${String(1 + (+db.params.tvaVentes || 0) / 100).replace('.', ',')} (TVA ${+db.params.tvaVentes || 0} %)<br>
-      TTC = Espèce + Euros × taux + Carte + Vir/Chéq + Glovo en ligne + Crédit client + Dépenses caisse</div>
-    ${kv('Dépenses caisse du jour', fmt(r.dep), r.payF ? `dont ${fmt(r.payF)} payés aux fournisseurs` : 'ajoutées en bas de page')}
+      TTC = Espèce + Euros × taux + Carte + Vir/Chéq + Glovo en ligne + Crédit client</div>
+    ${kv('Dépenses payées en caisse', fmt(r.dep), (r.payF ? `dont ${fmt(r.payF)} payés aux fournisseurs · ` : '') + 'sortent de la caisse')}
     ${kv('Reçu par ' + RESP, fmt(r.recu), 'Espèce + Euros (en DH) + Crédit payé')}
     ${r.entree || r.sortie ? kv('Entrées − sorties de caisse', signed(r.entree - r.sortie), 'onglet Caisse') : ''}
-    ${kv('Reste en caisse', fmt(st.reste), 'Reste veille + Reçu − Versements + Entrées − Sorties')}
+    ${kv('Reste en caisse', fmt(st.reste), 'Reste veille + Reçu − Dépenses caisse − Versements + Entrées − Sorties')}
     ${kv('Euros en caisse', fmt(st.eur) + ' €', `= ${fmt(st.eur * (+db.params.taux || 0))} DH · compris dans le Reste`)}
     ${kv('Crédit clients en cours', fmt(creditDu(state.date)), 'à récupérer · onglet Clients')}
     ${kv('CA HT du mois à ce jour', fmt(mtd), mName(ym))}
@@ -854,8 +903,8 @@ function live() {
   $('#dayCred').innerHTML = co.length ? copTable(co) : '<p class="empty">Aucun crédit client ce jour.</p>';
 }
 function chargeTable(list, withDate) {
-  return `<table><thead><tr>${withDate ? '<th>Date</th>' : ''}<th class="t">Catégorie</th><th class="t">Libellé</th><th class="t">Source</th><th>Montant</th><th></th></tr></thead><tbody>` +
-    list.map(c => `<tr>${withDate ? `<td>${fd(c.date)}</td>` : ''}<td class="t">${esc(c.cat)}</td><td class="t">${esc([c.lib, c.four, c.ref && 'n° ' + c.ref, c.source === 'Fournisseur' && c.tva != null && `HT, TVA ${c.tva} %`].filter(Boolean).join(' · '))}</td><td class="t">${esc(c.source)}</td><td>${fmt(c.montant)}</td><td><button class="x" data-del="${esc(c.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
+  return `<table><thead><tr>${withDate ? '<th>Date</th>' : ''}<th class="t">Catégorie</th><th class="t">Libellé</th><th class="t">Source</th><th>Montant HT</th><th></th></tr></thead><tbody>` +
+    list.map(c => `<tr>${withDate ? `<td>${fd(c.date)}</td>` : ''}<td class="t">${esc(c.cat)}</td><td class="t">${esc([c.lib, c.four, c.ref && 'n° ' + c.ref, (c.tva || (c.source === 'Fournisseur' && c.tva != null)) && `TVA ${c.tva} %`].filter(Boolean).join(' · '))}</td><td class="t">${esc(c.source)}</td><td>${fmt(c.montant)}</td><td><button class="x" data-del="${esc(c.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
     `</tbody><tfoot><tr><td colspan="${withDate ? 4 : 3}">Total</td><td>${fmt(sumBy(list, c => +c.montant))}</td><td></td></tr></tfoot></table>`;
 }
 
@@ -894,7 +943,7 @@ function caisse() {
     kpi('Entrées — ' + mName(ym), fmt(t.entree), `${en.length} entrée(s)`) +
     kpi('Versé à la banque — ' + mName(ym), fmt(t.versement + t.versEurDh), t.versEur ? `dont ${fmt(t.versEur)} € (${fmt(t.versEurDh)} DH)` : 'dirhams') +
     kpi('Reçu en caisse — ' + mName(ym), fmt(t.recu), 'espèces + euros + crédits remboursés en espèces');
-  $('#cTot').innerHTML = kv('Reste au début du mois', fmt(at(L, addDays(ym + '-01', -1)).reste)) + kv('+ Reçu par ' + RESP, fmt(t.recu), 'Espèce + Euros (en DH) + Crédit payé') +
+  $('#cTot').innerHTML = kv('Reste au début du mois', fmt(at(L, addDays(ym + '-01', -1)).reste)) + kv('+ Reçu par ' + RESP, fmt(t.recu), 'Espèce + Euros (en DH) + Crédit payé') + kv('− Dépenses payées en caisse', fmt(t.dep), t.payF ? `dont ${fmt(t.payF)} payés aux fournisseurs` : 'charges payées en caisse') +
     kv('− Versements à la banque', fmt(t.versement + t.versEurDh), t.versEur ? `dont ${fmt(t.versEur)} € (${fmt(t.versEurDh)} DH)` : '') + kv('+ Entrées', fmt(t.entree)) + kv('− Sorties', fmt(t.sortie)) +
     kv('<b>= Argent en caisse</b>', `<b>${fmt(fin.reste)}</b>`, fin.eur ? `dont ${fmt(fin.eur)} € (${fmt(fin.eur * taux)} DH)` : '');
   $('#cList').innerHTML = !list.length ? '<p class="empty">Aucune entrée ni sortie pour ' + mName(ym) + '.</p>'
@@ -908,7 +957,7 @@ const cent = v => Math.round(v * 100) / 100;
 function compte(nom, d = db) {
   const f = d.fours.find(x => x.nom === nom) || {}, solde0 = +f.solde0 || 0;
   // factures saisies HT : on doit le TTC (anciennes factures sans taux = montant déjà dû)
-  const ops = [...d.charges.filter(c => c.source === 'Fournisseur' && c.four === nom).map(c => ({ ...c, del: 'del', v: cent((+c.montant || 0) * (1 + (+c.tva || 0) / 100)),
+  const ops = [...d.charges.filter(c => c.source === 'Fournisseur' && c.four === nom).map(c => ({ ...c, del: 'del', v: ttcOf(c),
       op: (c.montant < 0 ? 'Avoir' : 'Facture') + (c.tva ? ` (HT ${fmt(Math.abs(c.montant))} + TVA ${c.tva} %)` : '') })),
     ...d.paiements.filter(p => p.four === nom).map(p => ({ ...p, op: p.mode === 'Caisse' ? 'Paiement espèces' : 'Paiement banque', v: -(+p.montant || 0), del: 'delpay' }))]
     .sort((a, b) => a.date.localeCompare(b.date));
@@ -1152,6 +1201,9 @@ function params() {
     : fileH ? `Les données sont enregistrées automatiquement dans <b>${esc(fileH.name)}</b>. Vous pouvez l'ouvrir dans Excel pour les consulter (fermez-le avant de continuer la saisie).`
     : 'Aucun fichier choisi : les données ne sont gardées que dans le navigateur.';
   document.querySelector('.fsonly').hidden = !FS_OK || DEMO;
+  $('#pwdInfo').textContent = db.pwd ? `Activé : il est demandé pour supprimer ou modifier une saisie déjà enregistrée (puis plus rien pendant ${UNLOCK / 60000} minutes). Pour le changer, tapez le nouveau ci-dessous.`
+    : 'Aucun mot de passe : tout le monde peut supprimer ou modifier les saisies. Choisissez-en un pour protéger les données.';
+  $('#pwdOff').hidden = !db.pwd;
   $('#catList').innerHTML = GRPS.map(g => `<div class="cg"><b>${esc(g)}${g === VAR ? '' : ' <small>(dépenses fixes)</small>'}</b>` +
     (db.cats.filter(c => grpOf(c) === g).map(c => `<span class="chip">${esc(c)}<button class="x" data-delcat="${esc(c)}" title="Supprimer" aria-label="Supprimer ${esc(c)}">×</button></span>`).join('') || '<span class="empty">—</span>') + '</div>').join('');
 }
@@ -1192,7 +1244,7 @@ function toWorkbook() {
     ['Paiements', [['Date', 'Fournisseur', 'Montant', 'Mode', 'Référence'], ...[...db.paiements].sort((a, b) => a.date.localeCompare(b.date)).map(p => [p.date, p.four, p.montant, p.mode, p.ref])], [12, 26, 12, 10, 14]],
     ['Caisse', [['Date', 'Type', 'Montant', 'Motif'], ...[...db.mvts].sort((a, b) => a.date.localeCompare(b.date)).map(m => [m.date, m.type, m.montant, m.motif])], [12, 10, 12, 30]],
     ['Catégories', [['Catégorie', 'Groupe'], ...db.cats.map(c => [c, grpOf(c)])], [34, 30]],
-    ['Paramètres', [['Clé', 'Valeur'], ...Object.entries(db.params), ['savedAt', db.savedAt || 0]], [16, 14]],
+    ['Paramètres', [['Clé', 'Valeur'], ...Object.entries(db.params), ['savedAt', db.savedAt || 0], ['pwd', db.pwd || '']], [16, 14]],
     ['Calculs', [['Date', 'CA HT', 'CA TTC', 'Dépense caisse', 'Reçu', 'Versement', 'Entrée caisse', 'Sortie caisse', 'Reste', 'Crédit en cours', 'Euros en caisse (€)'], ...L.map(r => [r.date, r.ca, r.caTTC, r.dep, r.recu, r.versement, r.entree, r.sortie, r.reste, r.credit, r.eurCaisse])], [12, 12, 12, 14, 12, 12, 13, 13, 12, 14, 16]],
   ]);
 }
@@ -1222,7 +1274,7 @@ function fromWorkbook(wb) {
   const names = K ? [...new Set(K.map(r => String(r['Catégorie']).trim()).filter(Boolean))] : [];
   if ((XLSX.utils.sheet_to_json(wb.Sheets['Catégories'] || {}, { header: 1 })[0] || []).includes('Groupe')) { nd.cats = names; nd.catGrp = Object.fromEntries(K.map(r => [String(r['Catégorie']).trim(), String(r.Groupe)])); }
   else Object.assign(nd, migrateCats(names, nd.charges));
-  for (const r of P || []) { if (r['Clé'] in nd.params) nd.params[r['Clé']] = num(r.Valeur); if (r['Clé'] === 'savedAt') nd.savedAt = num(r.Valeur); }
+  for (const r of P || []) { if (r['Clé'] in nd.params) nd.params[r['Clé']] = num(r.Valeur); if (r['Clé'] === 'savedAt') nd.savedAt = num(r.Valeur); if (r['Clé'] === 'pwd') nd.pwd = String(r.Valeur || ''); }
   return nd;
 }
 function backup() { XLSX.writeFile(toWorkbook(), `suivi-ventes-copie-${today()}.xlsx`); db.lastBackup = today(); save(); render(); }
@@ -1235,7 +1287,7 @@ function toIso(v) {
 }
 async function restore(file) {
   if (!file) return;
-  if (!confirm('Remplacer TOUTES les données actuelles par celles du fichier « ' + file.name + ' » ?')) return;
+  if (!confirm('Remplacer TOUTES les données actuelles par celles du fichier « ' + file.name + ' » ?') || !(await guard())) return;
   try {
     const nd = fromWorkbook(XLSX.read(await file.arrayBuffer()));
     if (!nd) return alert('Fichier non reconnu : il faut une copie avec les feuilles « Journal » et « Charges ».');
@@ -1309,12 +1361,18 @@ function renderBanner() {
   $('#banner').innerHTML = h;
   $('#fileName').textContent = fileH && fileState === 'ok' ? '📄 ' + fileH.name : '';
 }
-const go = p => { state.page = p; history.replaceState(null, '', '#' + p); render(); scrollTo(0, 0); };
-const setDate = d => { if (!d) return; state.date = d; state.ym = d.slice(0, 7); saisie(); };
+// quitter une journée pas enregistrée : on demande avant de perdre la saisie
+const leaveDraft = () => !draft || (confirm(`La journée du ${fd(state.date)} n'est pas enregistrée. Abandonner les modifications ?`) && !(draft = null));
+const go = p => { if (state.page === 'saisie' && p !== 'saisie' && !leaveDraft()) return; state.page = p; history.replaceState(null, '', '#' + p); render(); scrollTo(0, 0); };
+const setDate = d => { if (!d) return; if (d !== state.date && !leaveDraft()) return ($('#dDate').value = state.date); state.date = d; state.ym = d.slice(0, 7); saisie(); };
+addEventListener('beforeunload', e => { if (draft) e.preventDefault(); });
 
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => go(b.dataset.p));
-document.addEventListener('change', e => {
+document.addEventListener('change', async e => {
   if (e.target.matches('.ym') && e.target.value) { state.ym = e.target.value; render(); }
+  // modifier un paramètre enregistré : mot de passe (refusé → la valeur d'avant revient)
+  const pk = e.target.dataset?.param;
+  if (pk) { const v = num(e.target.value); if (await guard()) { db.params[pk] = v; save(); } return render(); }
   if (e.target.name === 'cat' && e.target.value === NEW_CAT) {
     const c = addCat(prompt('Nom de la nouvelle catégorie :'));
     fillCats(); e.target.value = c || e.target.options[0].value;
@@ -1329,7 +1387,7 @@ document.addEventListener('change', e => {
     f.cat.hidden = f.tva.hidden = p; f.mode.hidden = !p; f.montant.placeholder = p ? 'Montant payé (DH)' : 'Montant HT (DH)';
   }
   const k = e.target.dataset?.fset, fo = k && db.fours.find(x => x.nom === state.four);
-  if (fo) { fo[k] = k === 'tel' ? e.target.value.trim() : num(e.target.value); save(); render(); }
+  if (fo) { const v = e.target.value; if (await guard()) { fo[k] = k === 'tel' ? v.trim() : num(v); save(); } return render(); }
   if (e.target.name === 'client' && e.target.value === NEW_CLIENT) {
     const n = addClient(prompt('Nom du client :'));
     fillClients(); e.target.value = n || '';
@@ -1339,10 +1397,23 @@ document.addEventListener('change', e => {
   const per = e.target.dataset?.per;
   if (per) { state[per] = e.target.value; render(); }
   const kc = e.target.dataset?.cset, cl = kc && db.clients.find(x => x.nom === state.client);
-  if (cl) { cl[kc] = kc === 'tel' ? e.target.value.trim() : num(e.target.value); save(); render(); }
+  if (cl) { const v = e.target.value; if (await guard()) { cl[kc] = kc === 'tel' ? v.trim() : num(v); save(); } return render(); }
 });
 $('#fCat').g.innerHTML = GRPS.map(g => `<option${g === DEF_GRP ? ' selected' : ''}>${esc(g)}</option>`).join('');
-$('#fCat').onsubmit = e => { e.preventDefault(); addCat(e.target.c.value, e.target.g.value); e.target.c.value = ''; render(); };
+$('#fCat').onsubmit = async e => {
+  e.preventDefault();
+  const n = e.target.c.value.trim(), g = e.target.g.value;
+  if (db.cats.some(x => x.toLowerCase() === n.toLowerCase()) && !(await guard())) return; // changer le groupe d'une catégorie existante
+  addCat(n, g); e.target.c.value = ''; render();
+};
+$('#fPwd').onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target, p1 = f.p1.value;
+  if (p1 !== f.p2.value) return alert('Les deux mots de passe ne sont pas identiques.');
+  if (p1.length < 4) return alert('Choisissez au moins 4 caractères.');
+  if (db.pwd && !(await guard())) return;                                    // changer : l'ancien d'abord
+  db.pwd = await sha(p1); unlockedUntil = Date.now() + UNLOCK; save(); f.reset(); render(); flash('Mot de passe enregistré ✓');
+};
 $('#fMvt').onsubmit = e => {
   e.preventDefault();
   const f = e.target.elements, m = num(f.montant.value);
@@ -1370,12 +1441,20 @@ $('#xMonth').onclick = exportMonth; $('#xYear').onclick = exportYear; $('#bSave'
 $('#bLoad').onchange = e => { restore(e.target.files[0]); e.target.value = ''; };
 
 buildJourForm();
-$('#fJour').addEventListener('input', e => {
-  const k = e.target.name, j = (db.jours[state.date] ??= {});
-  j[k] = k === 'obs' ? e.target.value : e.target.value === '' ? '' : +e.target.value;
-  if (Object.values(j).every(v => !v)) delete db.jours[state.date];
-  save(); live();
+// la saisie du jour reste un brouillon jusqu'au bouton « Enregistrer la journée »
+let draft = null;
+$('#fJour').addEventListener('input', () => {
+  draft = Object.fromEntries([...$('#fJour').elements].filter(el => el.name).map(el => [el.name, el.name === 'obs' ? el.value : el.value === '' ? '' : +el.value]));
+  live();
 });
+$('#fJour').onsubmit = e => { e.preventDefault(); saveJour(); };
+async function saveJour() {
+  if (!draft) return flash('Rien de nouveau à enregistrer');
+  const old = db.jours[state.date];
+  if (old && Object.values(old).some(v => v) && !(await guard())) return; // modifier une journée déjà enregistrée
+  if (Object.values(draft).every(v => !v)) delete db.jours[state.date]; else db.jours[state.date] = draft;
+  draft = null; save(); saisie(); flash(`Journée du ${fd(state.date)} enregistrée ✓`);
+}
 document.addEventListener('submit', e => {
   if (e.target.matches('.fClient')) {
     e.preventDefault();
@@ -1387,27 +1466,30 @@ document.addEventListener('submit', e => {
   }
   if (!e.target.matches('.fCharge')) return;
   e.preventDefault();
-  const f = e.target.elements, m = num(f.montant.value);
-  if (!f.date.value || !(m > 0)) return alert('Indiquez une date et un montant supérieur à 0.');
+  const f = e.target.elements, ttc = num(f.montant.value), tva = +f.tva.value;
+  if (!f.date.value || !(ttc > 0)) return alert('Indiquez une date et un montant supérieur à 0.');
   if (f.cat.value === NEW_CAT) return alert('Choisissez une catégorie.');
-  db.charges.push({ id: uid(), date: f.date.value, cat: f.cat.value, lib: f.lib.value.trim(), montant: m, source: f.source.value });
+  // montant payé TTC → charge enregistrée HT (le TTC sort de la caisse / de la banque)
+  db.charges.push({ id: uid(), date: f.date.value, cat: f.cat.value, lib: f.lib.value.trim(), montant: cent(ttc / (1 + tva / 100)), tva, source: f.source.value });
   save(); f.lib.value = ''; f.montant.value = ''; f.cat.focus(); render();
 });
-document.addEventListener('click', e => {
+document.addEventListener('click', async e => {
+  if (e.target.closest('[data-savejour]')) return saveJour();
+  if (e.target.closest('#pwdOff')) { if (confirm('Supprimer le mot de passe ?') && await guard()) { db.pwd = ''; save(); render(); } return; }
   const dc = e.target.closest('[data-delcat]');
-  if (dc) { db.cats = db.cats.filter(c => c !== dc.dataset.delcat); save(); return render(); }
+  if (dc) { if (await guard()) { db.cats = db.cats.filter(c => c !== dc.dataset.delcat); save(); render(); } return; }
   const dm = e.target.closest('[data-delmv]'), mv = dm && db.mvts.find(x => x.id === dm.dataset.delmv);
-  if (mv) { if (confirm(`Supprimer cette ${mv.type.toLowerCase()} de ${fmt(mv.montant)} DH${mv.motif ? ' (' + mv.motif + ')' : ''} ?`)) { db.mvts = db.mvts.filter(x => x !== mv); save(); render(); } return; }
+  if (mv) { if (confirm(`Supprimer cette ${mv.type.toLowerCase()} de ${fmt(mv.montant)} DH${mv.motif ? ' (' + mv.motif + ')' : ''} ?`) && await guard()) { db.mvts = db.mvts.filter(x => x !== mv); save(); render(); } return; }
   const dp = e.target.closest('[data-delpay]'), pay = dp && db.paiements.find(x => x.id === dp.dataset.delpay);
-  if (pay) { if (confirm(`Supprimer le paiement de ${fmt(pay.montant)} DH à ${pay.four} du ${fd(pay.date)} ?`)) { db.paiements = db.paiements.filter(x => x !== pay); save(); render(); } return; }
+  if (pay) { if (confirm(`Supprimer le paiement de ${fmt(pay.montant)} DH à ${pay.four} du ${fd(pay.date)} ?`) && await guard()) { db.paiements = db.paiements.filter(x => x !== pay); save(); render(); } return; }
   const df = e.target.closest('[data-delfour]');
-  if (df) { if (confirm(`Supprimer le fournisseur « ${df.dataset.delfour} » ?`)) { db.fours = db.fours.filter(x => x.nom !== df.dataset.delfour); state.four = null; save(); render(); } return; }
+  if (df) { if (confirm(`Supprimer le fournisseur « ${df.dataset.delfour} » ?`) && await guard()) { db.fours = db.fours.filter(x => x.nom !== df.dataset.delfour); state.four = null; save(); render(); } return; }
   const rl = e.target.closest('[data-releve]');
   if (rl) return releveOut(rl.dataset.kind, rl.dataset.releve);
   const dco = e.target.closest('[data-delcop]'), cop = dco && db.cops.find(x => x.id === dco.dataset.delcop);
-  if (cop) { if (confirm(`Supprimer « ${cop.type === 'Crédit' ? 'vente à crédit' : 'remboursement'} » de ${fmt(cop.montant)} DH pour ${cop.client} du ${fd(cop.date)} ?`)) { db.cops = db.cops.filter(x => x !== cop); save(); render(); } return; }
+  if (cop) { if (confirm(`Supprimer « ${cop.type === 'Crédit' ? 'vente à crédit' : 'remboursement'} » de ${fmt(cop.montant)} DH pour ${cop.client} du ${fd(cop.date)} ?`) && await guard()) { db.cops = db.cops.filter(x => x !== cop); save(); render(); } return; }
   const dcl = e.target.closest('[data-delclient]');
-  if (dcl) { if (confirm(`Supprimer le client « ${dcl.dataset.delclient} » ?`)) { db.clients = db.clients.filter(x => x.nom !== dcl.dataset.delclient); state.client = null; save(); render(); } return; }
+  if (dcl) { if (confirm(`Supprimer le client « ${dcl.dataset.delclient} » ?`) && await guard()) { db.clients = db.clients.filter(x => x.nom !== dcl.dataset.delclient); state.client = null; save(); render(); } return; }
   const cr = e.target.closest('[data-client]');
   if (cr) { state.client = cr.dataset.client; document.querySelector('#p-clients .fClient').elements.client.value = state.client; clients(); return $('#clDet').scrollIntoView({ behavior: 'smooth' }); }
   const fr = e.target.closest('[data-four]');
@@ -1415,11 +1497,11 @@ document.addEventListener('click', e => {
   const del = e.target.closest('[data-del]'), day = e.target.closest('[data-day]'), mo = e.target.closest('[data-month]');
   if (del) {
     const c = db.charges.find(x => x.id === del.dataset.del);
-    if (c && confirm(`Supprimer la charge « ${c.cat} ${c.lib} » de ${fmt(c.montant)} DH ?`)) { db.charges = db.charges.filter(x => x !== c); save(); render(); }
-  } else if (day) { state.date = day.dataset.day; go('saisie'); }
+    if (c && confirm(`Supprimer la charge « ${c.cat} ${c.lib} » de ${fmt(c.montant)} DH ?`) && await guard()) { db.charges = db.charges.filter(x => x !== c); save(); render(); }
+  } else if (day) { if (leaveDraft()) { state.date = day.dataset.day; go('saisie'); } }
   else if (mo) { state.ym = mo.dataset.month; go('rapport'); }
 });
-document.addEventListener('input', e => { const k = e.target.dataset?.param; if (k) { db.params[k] = num(e.target.value); save(); } });
+
 let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => ['dash', 'bilan'].includes(state.page) && render(), 150); });
 
 // Auto-test des formules : ouvrir index.html?test
@@ -1431,18 +1513,22 @@ if (location.search.includes('test')) {
     cats: ['Loyer', 'Divers'], catGrp: { Loyer: 'Logement', Divers: VAR }, params: { soldeInitial: 100 },
     mvts: [{ date: '2026-10-01', type: 'Sortie', montant: 200 }, { date: '2026-10-01', type: 'Entrée', montant: 50 }, { date: '2026-10-02', type: 'Sortie', montant: 100 }], fours: [], paiements: [] };
   const [r, r2] = ledger(FIX);
-  const checks = { 'CA': r.ca === 1950, 'Reçu': r.recu === 1050, 'Reste': r.reste === 200, 'Sortie seule': r2.reste === 100 && r2.ca === 0, 'Dépense caisse': r.dep === 150, 'Charges': r.charges === 450, 'Crédit': r.credit === 50 };
+  // Espèce = ventes avant dépenses : CA 1000 + 500 + 200 + 100 = 1800 ; Reste 100 + 1050 − 150 (dépense caisse) − 800 + 50 − 200 = 50
+  const checks = { 'CA': r.ca === 1800, 'Reçu': r.recu === 1050, 'Reste': r.reste === 50, 'Sortie seule': r2.reste === -50 && r2.ca === 0, 'Dépense caisse': r.dep === 150, 'Charges': r.charges === 450, 'Crédit': r.credit === 50 };
   // le tableau de bord et le rapport lisent `db` : on l'échange le temps du test
   const real = db; db = FIX;
   const st = stats('2026-10');
-  checks['Total du mois'] = st.t.ca === 1950;
+  checks['Total du mois'] = st.t.ca === 1800;
   checks['Répartition du CA'] = sumBy(st.mix, m => m[1]) === st.t.caTTC; // la barre empilée doit faire 100 % du CA encaissé
   checks['CA cumulé'] = st.cumA.at(-1) === st.t.ca;
-  checks['Résultat'] = st.res === 1500 && Math.round(st.marge) === 77;
+  checks['Résultat'] = st.res === 1350 && Math.round(st.marge) === 75;
   checks['TVA hors charges'] = r.tvaPayee === 500 && r.charges === 450;
-  // 10 € reçus et 4 € versés au taux de 10 : CA +100 DH, Reste +100 − 40, euros 50 + 10 − 4
+  // 10 € reçus et 4 € versés au taux de 10 : CA +100 DH, Reste 50 + 100 − 40, euros 50 + 10 − 4
   const E = ledger({ ...FIX, jours: { '2026-10-01': { ...FIX.jours['2026-10-01'], eur: 10, versEur: 4 } }, params: { ...FIX.params, taux: 10, euro: 50 } })[0];
-  checks['Euros'] = E.caTTC === 2050 && E.reste === 260 && E.eurCaisse === 56;
+  checks['Euros'] = E.caTTC === 1900 && E.reste === 110 && E.eurCaisse === 56;
+  // dépense payée 120 TTC à 20 % : charge 100 HT, TVA récupérable 20, 120 sortent de la caisse, CA inchangé
+  const [tx] = ledger({ ...DEF(), charges: [{ date: '2026-10-01', cat: 'Gaz', montant: 100, tva: 20, source: 'Caisse' }] });
+  checks['Dépense HT + TVA'] = tx.charges === 100 && tx.dep === 120 && tx.tvaRec === 20 && tx.reste === -120 && tx.caTTC === 0;
   // relevé de février : 100 + 50 (janvier) reportés, −30 en février, mars exclu
   const PR = periode({ solde0: 100, ops: [{ date: '2026-01-05', v: 50 }, { date: '2026-02-01', v: -30 }, { date: '2026-03-01', v: 20 }] }, '2026-02-01', '2026-02-28');
   checks['Relevé par période'] = PR.open === 150 && PR.ops.length === 1 && PR.close === 120 && PR.cred === 30 && PR.deb === 0;
@@ -1454,9 +1540,9 @@ if (location.search.includes('test')) {
   const MG = { ...DEF(), jours: { '2026-09-01': { esp: 10, creditClient: 70, creditPaye: 20 } } }; migrateCredit(MG);
   checks['Migration crédit sans nom'] = compteClient(SANS_NOM, MG).solde === 50 && !('creditClient' in MG.jours['2026-09-01']);
   const H = ledger({ ...FIX, params: { ...FIX.params, tvaVentes: 10 } })[0];   // ventes saisies TTC, CA suivi HT
-  checks['CA HT'] = H.caTTC === 1950 && Math.abs(H.ca * 1.1 - 1950) < 1e-9 && Math.abs(H.ca + H.tvaCol - 1950) < 1e-9;
+  checks['CA HT'] = H.caTTC === 1800 && Math.abs(H.ca * 1.1 - 1800) < 1e-9 && Math.abs(H.ca + H.tvaCol - 1800) < 1e-9;
   const B = bilanRows(['2026-10']), bv = l => B.find(x => x.label === l).vals[0];
-  checks['Bilan TABLE M'] = bv('TOTAL REVENUS') === 1950 && bv('TOTAL DÉPENSES FIXES') === 150 && bv('TOTAL DÉPENSES VARIABLES') === 300 && bv('RESTE AU TOTAL') === st.res && bv('TVA payée à la DGI') === 500;
+  checks['Bilan TABLE M'] = bv('TOTAL REVENUS') === 1800 && bv('TOTAL DÉPENSES FIXES') === 150 && bv('TOTAL DÉPENSES VARIABLES') === 300 && bv('RESTE AU TOTAL') === st.res && bv('TVA payée à la DGI') === 500;
   db = real;
   const mg = migrateCats(['Achats marchandises', 'Transport', 'Ma catégorie'], [{ cat: 'Achats marchandises' }]);
   checks['Migration catégories'] = mg.cats.includes('Achats marchandises') && mg.cats.includes('Ma catégorie') && !mg.cats.includes('Transport') && mg.cats.includes('Boucherie');
@@ -1467,7 +1553,7 @@ if (location.search.includes('test')) {
   const [fa, fp] = ledger(FX), cf = compte('F1', FX);
   checks['Solde fournisseur (TTC)'] = cf.solde === 520 && cf.fact === 1440 && cf.regl === 1420;
   checks['Facture = charge HT, hors caisse'] = fa.charges === 1100 && fa.dep === 0 && fa.tvaRec === 220;
-  checks['Paiement espèces = dépense caisse, pas une charge'] = fp.dep === 300 && fp.payF === 300 && fp.charges === 0;
+  checks['Paiement espèces = dépense caisse, pas une charge'] = fp.dep === 300 && fp.payF === 300 && fp.charges === 0 && fp.reste === -300;
   const bad = Object.keys(checks).filter(k => !checks[k]);
   alert(bad.length ? 'Auto-test ÉCHEC : ' + bad.join(', ') : 'Auto-test OK ✓');
 }
