@@ -117,6 +117,9 @@ tfoot td{font-weight:700;border-top:2px solid var(--axis);border-bottom:0}
 .rhead{display:none;align-items:flex-end;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:12px}
 .rhead h1{font-size:19px;line-height:1.1}.rhead .sub{color:var(--ink2);font-size:11px;margin-left:auto;text-align:right}
 .help{font-size:13.5px;color:var(--ink2)}
+.badge{display:inline-block;min-width:18px;padding:0 6px;border-radius:999px;background:var(--bad);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center;margin-left:6px}
+tr.late td{background:rgba(208,59,59,.07)}tr.soon td{background:rgba(237,161,0,.12)}.st-late{color:var(--bad);font-weight:600}.st-soon{color:#a26a00;font-weight:600}
+.ech{display:flex;align-items:center;gap:6px;white-space:nowrap}.ech input{flex:1;min-width:0}td input[type=date]{padding:3px 6px;font-size:13px}
 .jsave{display:flex;align-items:center;gap:12px;margin-top:16px}
 .unsaved{display:flex;align-items:center;justify-content:space-between;gap:8px;background:rgba(237,161,0,.14);border:1px solid rgba(237,161,0,.45);border-radius:8px;padding:6px 6px 6px 10px;margin-bottom:12px;font-size:13px}
 dialog{border:1px solid var(--border);border-radius:12px;padding:18px;background:var(--surface);color:var(--ink);width:min(360px,calc(100% - 32px))}
@@ -186,6 +189,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}dialog p{margin:0 0 10px;font-size:1
 
 <section id="p-dash" class="page" hidden>
   <div class="bar"><h1>Tableau de bord</h1><input type="month" class="ym" aria-label="Mois"></div>
+  <div id="dAlert"></div>
   <div class="kpis" id="tiles"></div>
   <div class="card"><h2>Ce qu'il faut retenir</h2><div id="dIns"></div></div>
   <div class="card"><h2>Chiffre d'affaires HT par jour (DH)</h2><div id="chDay" class="chart"></div></div>
@@ -297,6 +301,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}dialog p{margin:0 0 10px;font-size:1
       <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant HT (DH)" required>
       <select name="tva" aria-label="TVA de la facture"><option value="0">TVA 0 %</option><option value="7">TVA 7 %</option><option value="10">TVA 10 %</option><option value="14">TVA 14 %</option><option value="20" selected>TVA 20 %</option></select>
       <select name="cat" aria-label="Catégorie"></select>
+      <label class="tl ech">Échéance <input type="date" name="ech" aria-label="Échéance (délai de paiement)" data-auto="1"></label>
       <select name="mode" aria-label="Payé par" hidden><option value="Caisse">Payé en espèces (caisse)</option><option value="Banque">Payé par banque / chèque</option></select>
       <button class="btn pri">Ajouter</button>
     </form>
@@ -307,6 +312,16 @@ dialog::backdrop{background:rgba(0,0,0,.45)}dialog p{margin:0 0 10px;font-size:1
   </div>
   <div class="card"><h2>État des fournisseurs<span class="noprint"> — cliquez une ligne pour voir le relevé</span></h2><div class="tw" id="fEtat"></div></div>
   <div class="card" id="fDet" hidden></div>
+  <div class="card" id="eCard"><h2>Échéances des factures</h2>
+    <div class="bar noprint" style="margin:0 0 10px">
+      <select id="eFour" aria-label="Fournisseur"></select>
+      <select id="eStat" aria-label="Statut"><option value="open">Non payées</option><option value="late">En retard</option><option value="soon">À payer bientôt</option><option value="paid">Payées</option><option value="">Toutes</option></select>
+      <label class="tl">Échéance du <input type="date" id="eDu" aria-label="Échéance à partir du"></label>
+      <label class="tl">au <input type="date" id="eAu" aria-label="Échéance jusqu'au"></label>
+    </div>
+    <div class="tw" id="eList"></div>
+    <p class="help">Le reste à payer de chaque facture vient des paiements et avoirs du fournisseur, imputés aux dettes les plus anciennes d'abord. Cliquez une date pour changer l'échéance.</p>
+  </div>
 </section>
 
 <section id="p-bl" class="page" hidden>
@@ -334,6 +349,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}dialog p{margin:0 0 10px;font-size:1
     <form id="fFacBL" class="noprint" autocomplete="off" hidden style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
       <input name="num" placeholder="N° de la facture" required aria-label="Numéro de la facture" style="flex:1 1 160px;max-width:240px">
       <input type="date" name="date" required aria-label="Date de la facture">
+      <label class="tl ech">Échéance <input type="date" name="ech" aria-label="Échéance (délai de paiement)" data-auto="1"></label>
       <button class="btn pri"></button>
     </form>
     <p class="help" id="blMsg" style="color:var(--bad)"></p>
@@ -478,7 +494,9 @@ function migrateCredit(d) {
 }
 const PARAMS = [['soldeInitial', 'Reste de départ (DH)', 'Argent déjà en main avant le 1er jour saisi'], ['fondCaisse', 'Fond de caisse (DH)', ''],
   ['euro', 'Euros au départ (€)', 'Euros compris dans le Reste de départ ; ensuite ils viennent de la Saisie du jour'], ['taux', 'Taux Euro → DH', 'Dans l\'Excel : 10'],
-  ['tvaVentes', 'TVA sur les ventes (%)', 'Les ventes sont saisies TTC ; le CA est affiché HT = TTC ÷ (1 + taux)']];
+  ['tvaVentes', 'TVA sur les ventes (%)', 'Les ventes sont saisies TTC ; le CA est affiché HT = TTC ÷ (1 + taux)'],
+  ['delaiFour', 'Délai de paiement fournisseurs (jours)', 'Échéance proposée pour une facture : date de la facture + ce délai'],
+  ['alerteEch', 'Alerte échéances (jours)', 'Prévenir quand une facture fournisseur arrive à échéance dans ce nombre de jours']];
 
 // ---------- utilitaires ----------
 const $ = s => document.querySelector(s);
@@ -501,7 +519,7 @@ const sumBy = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
 
 // ---------- stockage ----------
 const withUsed = (cats, charges = []) => [...new Set([...cats, ...charges.map(c => c.cat)])];
-const DEF = () => ({ jours: {}, charges: [], mvts: [], fours: [], paiements: [], clients: [], cops: [], ...defCats(), params: { soldeInitial: 0, fondCaisse: 0, euro: 0, taux: 10, tvaVentes: 10 }, lastBackup: null });
+const DEF = () => ({ jours: {}, charges: [], mvts: [], fours: [], paiements: [], clients: [], cops: [], ...defCats(), params: { soldeInitial: 0, fondCaisse: 0, euro: 0, taux: 10, tvaVentes: 10, delaiFour: 60, alerteEch: 7 }, lastBackup: null });
 // Les données vont dans un fichier Excel choisi par l'utilisateur (Chrome / Edge).
 // Le navigateur en garde aussi une copie (localStorage), utilisée si le fichier n'est pas accessible.
 function load() {
@@ -628,6 +646,8 @@ function demoData() {
     const cb = sumBy(Object.keys(d.jours).filter(k => k.startsWith(ym)), k => d.jours[k].cb);
     if (cb) C(ym + '-28', 'Commission CMI', cb * .015, 'Banque');      // commission TPE du mois
   }
+  // délais de paiement négociés : poissonnerie 15 jours, fromagerie 30, les autres au délai par défaut
+  for (const c of d.charges) { const dl = { 'Poissonnerie du Port': 15, 'Fromagerie du Centre': 30 }[c.four]; if (dl && c.source === 'Fournisseur' && c.montant > 0 && !c.bl) c.ech = addDays(c.date, dl); }
   return d;
 }
 
@@ -905,6 +925,9 @@ const needPwd = () => { if (!DEMO && !db.pwd && fileState !== 'reconnect' && !$(
 const state = { page: location.hash.slice(1), ym: today().slice(0, 7), date: today(), year: new Date().getFullYear(), four: null, client: null, du: '', au: '' }; // du / au : période des relevés
 
 function dash() {
+  const ech = echeances();
+  $('#dAlert').innerHTML = ech.urgent.length ? `<div class="unsaved" style="margin-bottom:16px"><span>⚠ <b>Factures fournisseurs</b> : ${ech.late.length ? `${ech.late.length} en retard (${fmt(sumBy(ech.late, x => x.reste))} DH)` : ''}${ech.late.length && ech.urgent.length > ech.late.length ? ' et ' : ''}${ech.urgent.length > ech.late.length ? `${ech.urgent.length - ech.late.length} à payer d'ici ${ech.n} jours (${fmt(sumBy(ech.urgent.filter(x => x.jours >= 0), x => x.reste))} DH)` : ''}.</span>` +
+    '<a class="btn pri" href="#fournisseurs" data-go="fournisseurs" data-scroll="eCard">Voir les échéances</a></div>' : '';
   const st = stats(state.ym), t = st.t, taux = +db.params.taux || 0;
   const period = st.elapsed < st.all.length ? `1–${+st.ref.slice(8)} ` : '';
   $('#tiles').innerHTML =
@@ -918,6 +941,7 @@ function dash() {
     kpi('Reste en caisse', fmt(st.end.reste), `au ${fd(st.ref)}` + (t.sortie ? ` · ${fmt(t.sortie)} sortis ce mois` : '') + (st.end.eur ? ` · dont ${fmt(st.end.eur)} € (${fmt(st.end.eur * taux)} DH)` : '')) +
     kpi('Euros encaissés — ' + mName(st.ym), fmt(t.eur) + ' €', `= ${fmt(t.eurDh)} DH au taux de ${taux} · compris dans le CA`) +
     kpi('Euros en caisse', fmt(st.end.eur) + ' €', `= ${fmt(st.end.eur * taux)} DH · au ${fd(st.ref)}` + (t.versEur ? ` · ${fmt(t.versEur)} € versés ce mois` : '')) +
+    (ech.urgent.length ? kpi('Factures fournisseurs à payer', fmt(sumBy(ech.urgent, x => x.reste)), `${ech.late.length} en retard · ${ech.urgent.length - ech.late.length} d'ici ${ech.n} jours · page Fournisseurs`) : '') +
     kpi('Crédit clients en cours', fmt(creditDu(st.ref)), `à récupérer au ${fd(st.ref)} · ${db.clients.filter(c => compteClient(c.nom, db, st.ref).solde > 0).length} client(s) · onglet Clients`) +
     (db.fours.length ? kpi('À payer aux fournisseurs', fmt(sumBy(db.fours, f => Math.max(0, compte(f.nom).solde))), 'solde actuel · onglet Fournisseurs') : '');
   $('#dIns').innerHTML = insList(insights(st));
@@ -1060,7 +1084,7 @@ function compte(nom, d = db) {
   const f = d.fours.find(x => x.nom === nom) || {}, solde0 = +f.solde0 || 0;
   // factures saisies HT : on doit le TTC (anciennes factures sans taux = montant déjà dû)
   const ops = [...d.charges.filter(c => c.source === 'Fournisseur' && c.four === nom).map(c => ({ ...c, del: 'del', v: ttcOf(c),
-      op: (c.montant < 0 ? 'Avoir' : c.bl ? 'Bon de livraison' : 'Facture') + (c.bl ? (c.fac ? ` · facture ${esc(c.fac)}` : ' · à facturer') : '') + (c.tva ? ` (HT ${fmt(Math.abs(c.montant))} + TVA ${c.tva} %)` : '') })),
+      op: (c.montant < 0 ? 'Avoir' : c.bl ? 'Bon de livraison' : 'Facture') + (c.bl ? (c.fac ? ` · facture ${esc(c.fac)}` : ' · à facturer') : '') + (!c.bl && c.montant > 0 ? ` · échéance ${fd(c.ech || echDefaut(c.date))}` : '') + (c.tva ? ` (HT ${fmt(Math.abs(c.montant))} + TVA ${c.tva} %)` : '') })),
     ...d.paiements.filter(p => p.four === nom).map(p => ({ ...p, op: p.mode === 'Caisse' ? 'Paiement espèces' : 'Paiement banque', v: -(+p.montant || 0), del: 'delpay' }))]
     .sort((a, b) => a.date.localeCompare(b.date));
   let solde = solde0;
@@ -1068,9 +1092,59 @@ function compte(nom, d = db) {
   return { nom, tel: f.tel || '', solde0, ops, solde, fact: sumBy(ops, o => Math.max(0, o.v)), regl: -sumBy(ops, o => Math.min(0, o.v)), blTodo: sumBy(ops.filter(o => o.bl && !o.fac), o => o.v) };
 }
 const sl = (s, nom) => s > 0 ? `Vous devez ${fmt(s)} DH à ${esc(nom)}` : s < 0 ? `${esc(nom)} vous doit ${fmt(-s)} DH` : 'Compte soldé ✓';
+// ---------- échéances des factures fournisseurs ----------
+const echDefaut = date => date ? addDays(date, +db.params.delaiFour || 60) : '';
+// Chaque facture (directe, ou regroupant des BL) avec son échéance et son reste à payer :
+// les paiements et avoirs d'un fournisseur soldent ses dettes de la plus ancienne à la plus récente.
+function factures(d = db) {
+  const out = [], delai = +d.params.delaiFour || 60;
+  for (const f of d.fours) {
+    const ch = d.charges.filter(c => c.source === 'Fournisseur' && c.four === f.nom), items = [], g = {};
+    if (+f.solde0 > 0) items.push({ date: '', ttc: +f.solde0 });                     // dette d'avant la 1re saisie
+    for (const c of ch) if (c.montant > 0 && !c.bl) items.push({ four: f.nom, num: c.ref || '—', date: c.date, ech: c.ech || addDays(c.date, delai), ttc: ttcOf(c), cs: [c] });
+    for (const c of ch) if (c.bl && c.fac) (g[c.fac] ??= []).push(c);
+    for (const cs of Object.values(g)) { const date = cs[0].facDate || cs.map(c => c.date).sort().at(-1); items.push({ four: f.nom, num: cs[0].fac, date, ech: cs[0].facEch || addDays(date, delai), ttc: sumBy(cs, ttcOf), cs, bl: cs.length }); }
+    for (const c of ch) if (c.bl && !c.fac && c.montant > 0) items.push({ date: c.date, ttc: ttcOf(c) }); // BL pas encore facturé : dette sans échéance
+    let credit = sumBy(d.paiements.filter(p => p.four === f.nom), p => +p.montant || 0) - sumBy(ch.filter(c => c.montant < 0), ttcOf) + Math.max(0, -(+f.solde0 || 0));
+    for (const it of items.sort((a, b) => a.date.localeCompare(b.date))) {
+      const paye = Math.max(0, Math.min(credit, it.ttc)); credit -= paye; it.reste = cent(it.ttc - paye);
+      if (it.cs) out.push(it);
+    }
+  }
+  const t = today();
+  for (const x of out) x.jours = Math.round((new Date(x.ech) - new Date(t)) / 864e5);
+  return out;
+}
+// factures non payées en retard ou à échéance dans les `alerteEch` jours
+function echeances() {
+  const n = +db.params.alerteEch || 7, open = factures().filter(x => x.reste > 0.005);
+  return { n, late: open.filter(x => x.jours < 0), urgent: open.filter(x => x.jours <= n).sort((a, b) => a.ech.localeCompare(b.ech)) };
+}
+function echBadge() {
+  const k = echeances().urgent.length, b = document.querySelector('nav [data-p=fournisseurs]');
+  b.innerHTML = 'Fournisseurs' + (k ? `<span class="badge" title="${k} facture(s) en retard ou à payer bientôt">${k}</span>` : '');
+}
+let echRows = [];
+function echCard() {
+  const v = state.eFour || '', st = state.eStat ?? 'open', n = +db.params.alerteEch || 7, asc = state.eSort !== 'desc';
+  $('#eFour').innerHTML = '<option value="">Tous les fournisseurs</option>' + [...db.fours].sort((a, b) => a.nom.localeCompare(b.nom, 'fr')).map(f => `<option${f.nom === v ? ' selected' : ''}>${esc(f.nom)}</option>`).join('');
+  $('#eStat').value = st; $('#eDu').value = state.eDu || ''; $('#eAu').value = state.eAu || '';
+  const etat = x => x.reste <= 0.005 ? 'paid' : x.jours < 0 ? 'late' : x.jours <= n ? 'soon' : 'open';
+  echRows = factures().filter(x => (!v || x.four === v) && (!state.eDu || x.ech >= state.eDu) && (!state.eAu || x.ech <= state.eAu))
+    .filter(x => !st || (st === 'open' ? etat(x) !== 'paid' : etat(x) === st)).sort((a, b) => (asc ? 1 : -1) * a.ech.localeCompare(b.ech));
+  const lib = x => ({ paid: '<span class="good">Payée ✓</span>', late: `<span class="st-late">En retard de ${-x.jours} j</span>`,
+    soon: `<span class="st-soon">${x.jours ? `Dans ${x.jours} j` : "Aujourd'hui"}</span>`, open: `Dans ${x.jours} j` })[etat(x)];
+  $('#eList').innerHTML = !echRows.length ? '<p class="empty">Aucune facture pour ces filtres.</p>'
+    : `<table><thead><tr><th class="click" data-esort title="Trier par échéance">Échéance ${asc ? '▲' : '▼'}</th><th class="t">Statut</th><th class="t">Fournisseur</th><th class="t">N° facture</th><th>Date facture</th><th>Montant TTC</th><th>Reste à payer</th></tr></thead><tbody>` +
+      echRows.map((x, i) => `<tr class="${etat(x) === 'late' ? 'late' : etat(x) === 'soon' ? 'soon' : ''}"><td>${etat(x) === 'paid' ? fd(x.ech) : `<input type="date" data-ech="${i}" value="${x.ech}" aria-label="Échéance">`}</td>` +
+        `<td class="t">${lib(x)}</td><td class="t">${esc(x.four)}</td><td class="t">${esc(x.num)}${x.bl ? ` <small>(${x.bl} BL)</small>` : ''}</td><td>${fd(x.date)}</td><td>${fmt(x.ttc)}</td><td>${x.reste > 0.005 ? '<b>' + fmt(x.reste) + '</b>' : ''}</td></tr>`).join('') +
+      `</tbody><tfoot><tr><td colspan="5">Total (${echRows.length} facture(s))</td><td>${fmt(sumBy(echRows, x => x.ttc))}</td><td>${fmt(sumBy(echRows, x => x.reste))}</td></tr></tfoot></table>`;
+}
+
 function fournisseurs() {
   const f = $('#fOp').elements;
   if (!f.date.value) f.date.value = today();
+  if (!f.ech.value) f.ech.value = echDefaut(f.date.value);
   const C = db.fours.map(x => compte(x.nom)).sort((a, b) => b.solde - a.solde), du = C.filter(c => c.solde > 0), doit = C.filter(c => c.solde < 0);
   // chiffres du mois en cours (les soldes, eux, comptent tout l'historique)
   const ym = today().slice(0, 7), mois = mName(ym), dette = sumBy(du, c => c.solde);
@@ -1088,6 +1162,7 @@ function fournisseurs() {
     : `<table><thead><tr><th>Fournisseur</th><th class="t">Téléphone</th><th>Solde de départ</th><th>Facturé TTC</th><th>Payé + avoirs</th><th>dont BL à facturer</th><th>Vous devez</th><th>Il vous doit</th></tr></thead><tbody>` +
       C.map(c => `<tr class="click" data-four="${esc(c.nom)}"><td>${state.four === c.nom ? '<b>' + esc(c.nom) + '</b>' : esc(c.nom)}</td><td class="t">${esc(c.tel)}</td><td>${money(c.solde0)}</td><td>${money(c.fact)}</td><td>${money(c.regl)}</td><td>${money(c.blTodo)}</td><td class="bad">${c.solde > 0 ? fmt(c.solde) : ''}</td><td class="good">${c.solde < 0 ? fmt(-c.solde) : ''}</td></tr>`).join('') +
       `</tbody><tfoot><tr><td colspan="5">Total</td><td>${fmt(sumBy(C, c => c.blTodo))}</td><td>${fmt(sumBy(du, c => c.solde))}</td><td>${fmt(-sumBy(doit, c => c.solde))}</td></tr></tfoot></table>`;
+  echCard();
   const c = db.fours.some(x => x.nom === state.four) && compte(state.four);
   $('#fDet').hidden = !c;
   if (!c) return;
@@ -1211,6 +1286,7 @@ function blCard() {
   f.hidden = !sel.length || many;
   f.querySelector('button').textContent = `Générer la facture — ${sel.length} BL · ${fmt(sumBy(sel, ttcOf))} DH TTC` + (sel[0] ? ` · ${sel[0].four}` : '');
   if (!f.date.value) f.date.value = today();
+  if (!f.ech.value) f.ech.value = echDefaut(f.date.value);
   $('#blMsg').textContent = many ? 'Les BL cochés sont de plusieurs fournisseurs : une facture ne concerne qu\'un seul fournisseur.' : '';
   // factures déjà générées : regroupées par fournisseur + n° de facture
   const g = {};
@@ -1426,8 +1502,8 @@ function toWorkbook() {
   const L = ledger();
   return book([
     ['Journal', [['Date', ...F.map(f => f[1]), 'Observation'], ...Object.keys(db.jours).sort().map(d => [d, ...F.map(f => +db.jours[d][f[0]] || 0), db.jours[d].obs || ''])], [12, ...F.map(() => 12), 30]],
-    ['Charges', [['Date', 'Catégorie', 'Libellé', 'Montant', 'Source', 'Fournisseur', 'Référence', 'TVA %', 'BL', 'N° facture', 'Date facture'], ...[...db.charges].sort((a, b) => a.date.localeCompare(b.date))
-      .map(c => [c.date, c.cat, c.lib, c.montant, c.source, c.four || '', c.ref || '', c.tva ?? '', c.bl ? 1 : '', c.fac || '', c.facDate || ''])], [12, 22, 30, 12, 11, 22, 14, 8, 5, 14, 12]],
+    ['Charges', [['Date', 'Catégorie', 'Libellé', 'Montant', 'Source', 'Fournisseur', 'Référence', 'TVA %', 'BL', 'N° facture', 'Date facture', 'Échéance'], ...[...db.charges].sort((a, b) => a.date.localeCompare(b.date))
+      .map(c => [c.date, c.cat, c.lib, c.montant, c.source, c.four || '', c.ref || '', c.tva ?? '', c.bl ? 1 : '', c.fac || '', c.facDate || '', c.ech || c.facEch || ''])], [12, 22, 30, 12, 11, 22, 14, 8, 5, 14, 12, 12]],
     ['Fournisseurs', [['Nom', 'Téléphone', 'Solde de départ', 'Solde actuel'], ...db.fours.map(f => [f.nom, f.tel, f.solde0, compte(f.nom).solde])], [26, 16, 14, 14]],
     ['Clients', [['Nom', 'Téléphone', 'Solde de départ', 'Solde actuel'], ...db.clients.map(c => [c.nom, c.tel, c.solde0, compteClient(c.nom).solde])], [26, 16, 14, 14]],
     ['Crédits clients', [['Date', 'Client', 'Type', 'Montant', 'Mode', 'Détail'], ...[...db.cops].sort((a, b) => a.date.localeCompare(b.date)).map(o => [o.date, o.client, o.type, o.montant, o.mode, o.note])], [12, 26, 14, 12, 10, 30]],
@@ -1456,7 +1532,7 @@ function fromWorkbook(wb) {
   for (const n of nd.cops.map(o => o.client)) if (n && !nd.clients.some(c => c.nom === n)) nd.clients.push({ nom: n, tel: '', solde0: 0 });
   for (const r of C) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.charges.push({ id: uid(), date: d, cat: String(r['Catégorie'] || 'Autre'), lib: String(r['Libellé'] || ''), montant: num(r.Montant),
     source: ['Banque', 'Fournisseur'].includes(r.Source) ? r.Source : 'Caisse', four: String(r.Fournisseur || '').trim(), ref: String(r['Référence'] || ''),
-    ...(r['TVA %'] === '' || r['TVA %'] == null ? {} : { tva: num(r['TVA %']) }), ...(r.BL ? { bl: 1, fac: String(r['N° facture'] || ''), facDate: toIso(r['Date facture']) || '' } : {}) }); }
+    ...(r['TVA %'] === '' || r['TVA %'] == null ? {} : { tva: num(r['TVA %']) }), ...(r.BL ? { bl: 1, fac: String(r['N° facture'] || ''), facDate: toIso(r['Date facture']) || '', facEch: toIso(r['Échéance']) || '' } : toIso(r['Échéance']) ? { ech: toIso(r['Échéance']) } : {}) }); }
   for (const r of PA || []) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.paiements.push({ id: uid(), date: d, four: String(r.Fournisseur || '').trim(), montant: num(r.Montant), mode: r.Mode === 'Banque' ? 'Banque' : 'Caisse', ref: String(r['Référence'] || '') }); }
   nd.fours = (FO || []).map(r => ({ nom: String(r.Nom || '').trim(), tel: String(r['Téléphone'] || ''), solde0: num(r['Solde de départ']) })).filter(f => f.nom);
   for (const n of [...nd.charges.map(c => c.four), ...nd.paiements.map(p => p.four)]) if (n && !nd.fours.some(f => f.nom === n)) nd.fours.push({ nom: n, tel: '', solde0: 0 });
@@ -1495,7 +1571,7 @@ function render() {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.p === state.page));
   document.querySelectorAll('.ym').forEach(i => i.value = state.ym);
   fillCats(); fillFours(); fillClients();
-  renderBanner();
+  renderBanner(); echBadge();
   PAGES[state.page]();
 }
 const NEW_CAT = '__nouvelle';
@@ -1574,6 +1650,7 @@ document.addEventListener('change', async e => {
   if (e.target.form?.id === 'fOp' && e.target.name === 'type') {
     const f = e.target.form, p = e.target.value === 'Paiement';
     f.cat.hidden = f.tva.hidden = p; f.mode.hidden = !p; f.montant.placeholder = p ? 'Montant payé (DH)' : 'Montant HT (DH)';
+    f.ech.closest('label').hidden = e.target.value !== 'Facture';                    // l'échéance ne concerne que les factures
   }
   const k = e.target.dataset?.fset, fo = k && db.fours.find(x => x.nom === state.four);
   if (fo) { const v = e.target.value; if (await guard(`Modifier ${k === 'tel' ? 'le téléphone' : 'le solde de départ'} de ${fo.nom} ?`, 'Modifier', 'Modifier un fournisseur')) { fo[k] = k === 'tel' ? v.trim() : num(v); save(); } return render(); }
@@ -1583,6 +1660,16 @@ document.addEventListener('change', async e => {
     if (n) { state.client = n; if (state.page === 'clients') clients(); }
   }
   if (e.target.form?.matches('.fClient') && e.target.name === 'type') e.target.form.mode.hidden = e.target.value === 'Crédit';
+  // échéances : filtres, et changement d'une échéance enregistrée (mot de passe)
+  const ek = { eFour: 'eFour', eStat: 'eStat', eDu: 'eDu', eAu: 'eAu' }[e.target.id];
+  if (ek) { state[ek] = e.target.value; return echCard(); }
+  const ei = e.target.dataset?.ech, ex = ei != null && echRows[+ei];
+  if (ex) {
+    const v = e.target.value;
+    if (v && await guard(`Changer l'échéance de la facture ${ex.num} (${ex.four}) : ${fd(ex.ech)} → ${fd(v)} ?`, 'Modifier', 'Modifier une échéance'))
+      { for (const c of ex.cs) c[c.bl ? 'facEch' : 'ech'] = v; save(); }
+    return render();
+  }
   // caisse : qui a reçu l'argent (période, type, bénéficiaire)
   const qk = { qDu: 'qDu', qAu: 'qAu', qType: 'qType', qQui: 'qQui' }[e.target.id];
   if (qk) { state[qk] = e.target.value; if (qk !== 'qQui') state.qQui = ''; return quiCard(); }
@@ -1601,8 +1688,8 @@ $('#fFacBL').onsubmit = e => {
   if (!sel.length) return;
   if (new Set(sel.map(c => c.four)).size > 1) return alert('Cochez les BL d\'un seul fournisseur.');
   if (!num || !f.date.value) return alert('Indiquez le n° et la date de la facture.');
-  for (const c of sel) { c.fac = num; c.facDate = f.date.value; }
-  blSel.clear(); f.num.value = ''; save(); render(); flash(`Facture ${num} : ${sel.length} BL regroupés ✓`);
+  for (const c of sel) { c.fac = num; c.facDate = f.date.value; c.facEch = f.ech.value || echDefaut(f.date.value); }
+  blSel.clear(); f.num.value = ''; f.ech.dataset.auto = '1'; save(); render(); flash(`Facture ${num} : ${sel.length} BL regroupés ✓`);
 };
 $('#fCat').g.innerHTML = GRPS.map(g => `<option${g === DEF_GRP ? ' selected' : ''}>${esc(g)}</option>`).join('');
 $('#fCat').onsubmit = async e => {
@@ -1627,8 +1714,9 @@ $('#fOp').onsubmit = e => {
   const op = { id: uid(), date: f.date.value, four, ref: f.ref.value.trim() };
   if (type === 'Paiement') db.paiements.push({ ...op, montant: m, mode: f.mode.value });
   else if (f.cat.value === NEW_CAT) return alert('Choisissez une catégorie.');
-  else db.charges.push({ ...op, cat: f.cat.value, lib: type, montant: type === 'Avoir' ? -m : m, tva: +f.tva.value, source: 'Fournisseur' }); // HT ; avoir = charge négative
-  state.four = four; save(); f.ref.value = ''; f.montant.value = ''; render();
+  else db.charges.push({ ...op, cat: f.cat.value, lib: type, montant: type === 'Avoir' ? -m : m, tva: +f.tva.value, source: 'Fournisseur',
+    ...(type === 'Facture' ? { ech: f.ech.value || echDefaut(f.date.value) } : {}) }); // HT ; avoir = charge négative
+  state.four = four; save(); f.ref.value = ''; f.montant.value = ''; f.ech.dataset.auto = '1'; f.ech.value = echDefaut(f.date.value); render();
 };
 $('#dDate').onchange = e => setDate(e.target.value);
 $('#dPrev').onclick = () => setDate(addDays(state.date, -1));
@@ -1683,11 +1771,12 @@ document.addEventListener('click', async e => {
   if (pay) { if (await guard(`Supprimer le paiement de ${fmt(pay.montant)} DH à ${pay.four} du ${fd(pay.date)} ?`)) { db.paiements = db.paiements.filter(x => x !== pay); save(); render(); } return; }
   const df = e.target.closest('[data-delfour]');
   if (df) { if (await guard(`Supprimer le fournisseur « ${df.dataset.delfour} » ?`)) { db.fours = db.fours.filter(x => x.nom !== df.dataset.delfour); state.four = null; save(); render(); } return; }
+  if (e.target.closest('[data-esort]')) { state.eSort = state.eSort === 'desc' ? 'asc' : 'desc'; return echCard(); }
   const qr = e.target.closest('[data-qui]');
   if (qr) { state.qQui = qr.dataset.qui; return quiCard(); }
   if (e.target.closest('[data-qall]')) { e.preventDefault(); state.qQui = ''; return quiCard(); }
   const gl = e.target.closest('[data-go]');
-  if (gl) { e.preventDefault(); return go(gl.dataset.go); }
+  if (gl) { e.preventDefault(); go(gl.dataset.go); if (gl.dataset.scroll) $('#' + gl.dataset.scroll).scrollIntoView({ behavior: 'smooth' }); return; }
   const fpr = e.target.closest('[data-facprint]');
   if (fpr) return facPrint(blFacs[+fpr.dataset.facprint]);
   const fun = e.target.closest('[data-facundo]'), F = fun && blFacs[+fun.dataset.facundo];
@@ -1710,6 +1799,12 @@ document.addEventListener('click', async e => {
   else if (mo) { state.ym = mo.dataset.month; go('rapport'); }
 });
 
+// date de facture → échéance proposée (date + délai), tant que l'échéance n'a pas été changée à la main
+document.addEventListener('input', e => {
+  const f = e.target.form;
+  if (e.target.name === 'ech') e.target.dataset.auto = '0';
+  else if (e.target.name === 'date' && f?.ech && f.ech.dataset.auto !== '0') f.ech.value = echDefaut(e.target.value);
+});
 let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => ['dash', 'bilan'].includes(state.page) && render(), 150); });
 
 // Auto-test des formules : ouvrir index.html?test
@@ -1755,6 +1850,11 @@ if (location.search.includes('test')) {
   const SX = { ...DEF(), mvts: [{ date: '2026-10-02', type: 'Sortie', montant: 200, benef: 'Karim' }, { date: '2026-10-09', type: 'Sortie', montant: 300, benef: 'karim' }, { date: '2026-11-01', type: 'Sortie', montant: 999, benef: 'Karim' }, { date: '2026-10-03', type: 'Entrée', montant: 50 }],
     charges: [{ date: '2026-10-04', cat: 'Gaz', montant: 100, tva: 20, source: 'Caisse' }], paiements: [{ date: '2026-10-05', four: 'F1', montant: 80, mode: 'Caisse' }], jours: { '2026-10-06': { versement: 1000 } } };
   const SG = parQui(sortiesCaisse('2026-10-01', '2026-10-31', SX)), sg = q => SG.find(g => g.qui.toLowerCase() === q)?.total;
+  // échéances : départ 100, facture A 1000 (1er sept.), B 500 (1er oct.), payé 1300 → A payée, reste 300 sur B ; échéance par défaut = date + 60 j
+  const EX = { ...DEF(), fours: [{ nom: 'F3', solde0: 100 }], charges: [{ date: '2026-09-01', ref: 'A', cat: 'Boucherie', montant: 1000, source: 'Fournisseur', four: 'F3' },
+    { date: '2026-10-01', ref: 'B', cat: 'Boucherie', montant: 500, source: 'Fournisseur', four: 'F3', ech: '2026-10-15' }], paiements: [{ date: '2026-10-05', four: 'F3', montant: 1300, mode: 'Banque' }] };
+  const [fa1, fb1] = factures(EX).sort((a, b) => a.date.localeCompare(b.date));
+  checks['Échéances'] = fa1.reste === 0 && fb1.reste === 300 && fa1.ech === '2026-10-31' && fb1.ech === '2026-10-15';
   checks['Qui a reçu la caisse'] = sg('karim') === 500 && sg('gaz') === 120 && sg('f1') === 80 && sg('banque') === 1000 && SG.length === 4;
   checks['Bons de livraison'] = b0.solde === 170 && b0.blTodo === 170 && b1.solde === 170 && b1.blTodo === 0 && sumBy(ledger(BX), x => x.charges) === 150;
   const H = ledger({ ...FIX, params: { ...FIX.params, tvaVentes: 10 } })[0];   // ventes saisies TTC, CA suivi HT
