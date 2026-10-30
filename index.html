@@ -24,6 +24,7 @@ nav{display:flex;flex-direction:column;gap:2px;flex:1}
 nav button{border:0;background:none;color:var(--ink2);font:inherit;padding:9px 10px;border-radius:8px;text-align:left;cursor:pointer;white-space:nowrap}
 nav button:hover{background:var(--wash);color:var(--ink)}
 nav button.on{background:var(--wash);color:var(--ink);font-weight:600;box-shadow:inset 3px 0 0 var(--s1)}
+nav .sub{padding-left:24px;font-size:14px}
 nav .nl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);padding:16px 10px 4px}
 nav [data-p=params]{margin-top:auto}
 #fileName{font-size:12.5px;color:var(--ink2);padding:10px 10px 0;overflow-wrap:anywhere}
@@ -36,7 +37,7 @@ nav [data-p=params]{margin-top:auto}
   nav{order:3;flex:1 1 100%;flex-direction:row;gap:4px;overflow-x:auto}
   nav button{border-radius:0;padding:10px 12px;border-bottom:2px solid transparent}nav button:hover{background:none}
   nav button.on{background:none;box-shadow:none;border-color:var(--s1)}
-  nav .nl{display:none}nav [data-p=params]{margin-top:0}
+  nav .nl{display:none}nav [data-p=params]{margin-top:0}nav .sub{padding-left:12px;font-size:inherit}
 }
 #banner .warn{background:rgba(208,59,59,.08)}#banner span{flex:1 1 320px}
 main{max-width:1240px;margin:auto;padding:16px}
@@ -169,6 +170,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}dialog p{margin:0 0 10px;font-size:1
     <button data-p="charges">Charges</button>
     <button data-p="caisse">Caisse</button>
     <button data-p="fournisseurs">Fournisseurs</button>
+    <button data-p="bl" class="sub">Bons de livraison</button>
     <button data-p="clients">Clients</button>
     <span class="nl">Rapports</span>
     <button data-p="rapport">Rapport du mois</button>
@@ -288,21 +290,39 @@ dialog::backdrop{background:rgba(0,0,0,.45)}dialog p{margin:0 0 10px;font-size:1
     <form id="fOp" class="addf" autocomplete="off">
       <input type="date" name="date" required aria-label="Date">
       <select name="four" aria-label="Fournisseur"></select>
-      <select name="type" aria-label="Opération"><option value="BL">Bon de livraison</option><option value="Facture">Facture (à crédit)</option><option value="Paiement">Paiement</option><option value="Avoir">Avoir / retour</option></select>
-      <input name="ref" placeholder="N° BL / facture / chèque">
+      <select name="type" aria-label="Opération"><option value="Facture">Facture (à crédit)</option><option value="Paiement">Paiement</option><option value="Avoir">Avoir / retour</option></select>
+      <input name="ref" placeholder="N° facture / chèque">
       <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant HT (DH)" required>
       <select name="tva" aria-label="TVA de la facture"><option value="0">TVA 0 %</option><option value="7">TVA 7 %</option><option value="10">TVA 10 %</option><option value="14">TVA 14 %</option><option value="20" selected>TVA 20 %</option></select>
       <select name="cat" aria-label="Catégorie"></select>
       <select name="mode" aria-label="Payé par" hidden><option value="Caisse">Payé en espèces (caisse)</option><option value="Banque">Payé par banque / chèque</option></select>
       <button class="btn pri">Ajouter</button>
     </form>
-    <p class="help" style="margin:0"><b>Bon de livraison</b> : marchandise reçue, pas encore facturée — saisi <b>HT</b> avec sa TVA, il compte tout de suite dans les charges et dans ce que vous devez ; quand la facture arrive, cochez ses BL plus bas et « Générer la facture ».
+    <p class="help" style="margin:0">Les <b>bons de livraison</b> se saisissent dans la page <a href="#bl" data-go="bl">Bons de livraison</a>.
       <b>Facture</b> : achat à crédit sans BL, saisi <b>HT</b> avec son taux de TVA — le HT compte dans les charges du mois, le TTC (HT + TVA) est ce que vous devez.
       <b>Paiement</b> : vous payez le fournisseur — en espèces, il sort de la caisse (colonne Dépense du jour), sans être compté une 2e fois dans les charges.
       <b>Avoir</b> : retour ou remise du fournisseur — diminue ce que vous devez et les charges. Si vous payez plus que les factures (avance), c'est le fournisseur qui vous doit.</p>
   </div>
   <div class="card"><h2>État des fournisseurs<span class="noprint"> — cliquez une ligne pour voir le relevé</span></h2><div class="tw" id="fEtat"></div></div>
   <div class="card" id="fDet" hidden></div>
+</section>
+
+<section id="p-bl" class="page" hidden>
+  <div class="bar"><h1>Bons de livraison</h1></div>
+  <div class="kpis" id="blTiles"></div>
+  <div class="card noprint"><h2>Nouveau bon de livraison</h2>
+    <form id="fBL" class="addf" autocomplete="off">
+      <input type="date" name="date" required aria-label="Date de livraison">
+      <select name="four" aria-label="Fournisseur"></select>
+      <input name="ref" placeholder="N° du BL" required aria-label="Numéro du BL">
+      <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant HT (DH)" required aria-label="Montant HT">
+      <select name="tva" aria-label="TVA"><option value="0">TVA 0 %</option><option value="7">TVA 7 %</option><option value="10">TVA 10 %</option><option value="14">TVA 14 %</option><option value="20" selected>TVA 20 %</option></select>
+      <select name="cat" aria-label="Catégorie"></select>
+      <button class="btn pri">Ajouter le BL</button>
+    </form>
+    <p class="help" style="margin:0">Marchandise reçue, pas encore facturée : le BL se saisit <b>HT</b> avec sa TVA. Il compte tout de suite dans les charges et dans ce que vous devez au fournisseur.
+      Quand la facture arrive, cochez ses BL ci-dessous, tapez le n° et la date de la facture, puis « Générer la facture » : rien n'est compté deux fois.</p>
+  </div>
   <div class="card"><h2>Bons de livraison</h2>
     <div class="bar noprint" style="margin:0 0 10px">
       <select id="blFour" aria-label="Fournisseur"></select>
@@ -1057,7 +1077,7 @@ function fournisseurs() {
   $('#fTiles').innerHTML = kpi('Vous devez aux fournisseurs', fmt(dette), `${du.length} fournisseur(s) à payer`, 'lead') +
     kpi('Les fournisseurs vous doivent', fmt(-sumBy(doit, c => c.solde)), 'avances ou avoirs pas encore utilisés') +
     kpi('Achats HT — ' + mois, fmt(sumBy(fac, c => +c.montant)), `${fac.length} BL ou facture(s) · ${fmt(sumBy(fac, ttcOf))} TTC`) +
-    kpi('BL à facturer', fmt(sumBy(blTodo, ttcOf)), `${blTodo.length} bon(s) de livraison en attente de facture (TTC)`) +
+    kpi('BL à facturer', fmt(sumBy(blTodo, ttcOf)), `${blTodo.length} bon(s) de livraison en attente de facture (TTC) · page Bons de livraison`) +
     kpi('Payé aux fournisseurs — ' + mois, fmt(sumBy(pays, p => +p.montant)), `${pays.length} paiement(s)` + (payEsp ? ` · dont ${fmt(payEsp)} en espèces` : '')) +
     kpi('Plus grosse dette', du[0] ? fmt(du[0].solde) : '—', du[0] ? `${esc(du[0].nom)} · ${pct(du[0].solde / dette * 100)} du total` : 'aucune dette') +
     kpi('Fournisseurs', C.length, `${du.length} à payer · ${doit.length} vous doivent`);
@@ -1066,7 +1086,6 @@ function fournisseurs() {
     : `<table><thead><tr><th>Fournisseur</th><th class="t">Téléphone</th><th>Solde de départ</th><th>Facturé TTC</th><th>Payé + avoirs</th><th>dont BL à facturer</th><th>Vous devez</th><th>Il vous doit</th></tr></thead><tbody>` +
       C.map(c => `<tr class="click" data-four="${esc(c.nom)}"><td>${state.four === c.nom ? '<b>' + esc(c.nom) + '</b>' : esc(c.nom)}</td><td class="t">${esc(c.tel)}</td><td>${money(c.solde0)}</td><td>${money(c.fact)}</td><td>${money(c.regl)}</td><td>${money(c.blTodo)}</td><td class="bad">${c.solde > 0 ? fmt(c.solde) : ''}</td><td class="good">${c.solde < 0 ? fmt(-c.solde) : ''}</td></tr>`).join('') +
       `</tbody><tfoot><tr><td colspan="5">Total</td><td>${fmt(sumBy(C, c => c.blTodo))}</td><td>${fmt(sumBy(du, c => c.solde))}</td><td>${fmt(-sumBy(doit, c => c.solde))}</td></tr></tfoot></table>`;
-  blCard();
   const c = db.fours.some(x => x.nom === state.four) && compte(state.four);
   $('#fDet').hidden = !c;
   if (!c) return;
@@ -1129,6 +1148,33 @@ function printArea() { // n'imprime que #printArea (relevé, facture), en A4 por
 // ---------- bons de livraison fournisseurs : à facturer, puis regroupés en facture ----------
 // Un BL est une charge « Fournisseur » (bl: 1) : il compte dès la livraison dans les charges et dans la dette.
 // « Générer la facture » ne fait que lui donner un n° et une date de facture (fac, facDate) : rien n'est compté deux fois.
+function bl() {
+  const f = $('#fBL').elements;
+  if (!f.date.value) f.date.value = today();
+  const ym = today().slice(0, 7), mois = mName(ym), todo = db.charges.filter(c => c.bl && !c.fac).sort((a, b) => a.date.localeCompare(b.date));
+  const recus = db.charges.filter(c => c.bl && c.date.startsWith(ym)), facs = db.charges.filter(c => c.bl && c.fac && (c.facDate || '').startsWith(ym));
+  const fs = [...new Set(todo.map(c => c.four))], old = todo[0], jours = old ? Math.round((new Date(today()) - new Date(old.date)) / 864e5) : 0;
+  $('#blTiles').innerHTML = kpi('BL à facturer', fmt(sumBy(todo, ttcOf)) + ' DH', `${todo.length} bon(s) de livraison en attente de facture (TTC)`, 'lead') +
+    kpi('BL reçus — ' + mois, recus.length, `${fmt(sumBy(recus, c => +c.montant))} HT · ${fmt(sumBy(recus, ttcOf))} TTC`) +
+    kpi('Factures générées — ' + mois, new Set(facs.map(c => c.four + '|' + c.fac)).size, `${facs.length} BL · ${fmt(sumBy(facs, ttcOf))} TTC`) +
+    kpi('Fournisseurs à facturer', fs.length, fs.length ? fs.slice(0, 3).map(esc).join(', ') + (fs.length > 3 ? '…' : '') : 'aucun') +
+    kpi('Plus ancien BL à facturer', old ? jours + ' jour(s)' : '—', old ? `${esc(old.four)} · ${esc(old.ref)} du ${fd(old.date)}` : 'rien en attente');
+  blCard();
+}
+// fournisseur choisi : catégorie et TVA de son dernier BL ou de sa dernière facture
+$('#fBL').elements.four.addEventListener('change', e => {
+  const f = e.target.form, last = db.charges.filter(c => c.four === e.target.value && c.source === 'Fournisseur' && c.montant > 0).sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (last) { f.cat.value = last.cat; f.tva.value = String(+last.tva || 0); }
+});
+$('#fBL').onsubmit = e => {
+  e.preventDefault();
+  const f = e.target.elements, m = num(f.montant.value), four = f.four.value;
+  if (!db.fours.some(x => x.nom === four)) return alert('Choisissez un fournisseur.');
+  if (!f.date.value || !(m > 0)) return alert('Indiquez une date et un montant supérieur à 0.');
+  if (f.cat.value === NEW_CAT) return alert('Choisissez une catégorie.');
+  db.charges.push({ id: uid(), date: f.date.value, four, ref: f.ref.value.trim(), cat: f.cat.value, lib: 'BL', montant: m, tva: +f.tva.value, source: 'Fournisseur', bl: 1, fac: '' });
+  save(); f.ref.value = ''; f.montant.value = ''; render(); flash('BL ajouté ✓');
+};
 const blSel = new Set(); // BL cochés
 let blFacs = [];         // factures affichées (pour les boutons Imprimer / Annuler)
 function blCard() {
@@ -1425,7 +1471,7 @@ async function restore(file) {
 }
 
 // ---------- navigation & événements ----------
-const PAGES = { dash, saisie, charges, caisse, fournisseurs, clients, rapport, bilan, params };
+const PAGES = { dash, saisie, charges, caisse, fournisseurs, bl, clients, rapport, bilan, params };
 function render() {
   if (!PAGES[state.page]) state.page = 'dash';
   document.querySelectorAll('.page').forEach(s => s.hidden = s.id !== 'p-' + state.page);
@@ -1452,9 +1498,8 @@ function addCat(name, grp) {
 }
 const NEW_FOUR = '__nouveau';
 function fillFours() {
-  const s = $('#fOp').elements.four, v = s.value;
-  s.innerHTML = '<option value="">— Fournisseur —</option>' + [...db.fours].sort((a, b) => a.nom.localeCompare(b.nom, 'fr')).map(f => `<option>${esc(f.nom)}</option>`).join('') + `<option value="${NEW_FOUR}">➕ Nouveau fournisseur…</option>`;
-  if (db.fours.some(f => f.nom === v)) s.value = v;
+  const opts = '<option value="">— Fournisseur —</option>' + [...db.fours].sort((a, b) => a.nom.localeCompare(b.nom, 'fr')).map(f => `<option>${esc(f.nom)}</option>`).join('') + `<option value="${NEW_FOUR}">➕ Nouveau fournisseur…</option>`;
+  document.querySelectorAll('select[name=four]').forEach(s => { const v = s.value; s.innerHTML = opts; if (db.fours.some(f => f.nom === v)) s.value = v; });
 }
 function addFour(name) { // même principe que addCat
   const n = String(name || '').trim();
@@ -1507,7 +1552,7 @@ document.addEventListener('change', async e => {
   if (e.target.name === 'four' && e.target.value === NEW_FOUR) {
     const n = addFour(prompt('Nom du fournisseur :'));
     fillFours(); e.target.value = n || '';
-    if (n) { state.four = n; fournisseurs(); }
+    if (n) { state.four = n; render(); }
   }
   if (e.target.form?.id === 'fOp' && e.target.name === 'type') {
     const f = e.target.form, p = e.target.value === 'Paiement';
@@ -1565,7 +1610,7 @@ $('#fOp').onsubmit = e => {
   const op = { id: uid(), date: f.date.value, four, ref: f.ref.value.trim() };
   if (type === 'Paiement') db.paiements.push({ ...op, montant: m, mode: f.mode.value });
   else if (f.cat.value === NEW_CAT) return alert('Choisissez une catégorie.');
-  else db.charges.push({ ...op, cat: f.cat.value, lib: type, montant: type === 'Avoir' ? -m : m, tva: +f.tva.value, source: 'Fournisseur', ...(type === 'BL' ? { bl: 1, fac: '' } : {}) }); // HT ; avoir = charge négative
+  else db.charges.push({ ...op, cat: f.cat.value, lib: type, montant: type === 'Avoir' ? -m : m, tva: +f.tva.value, source: 'Fournisseur' }); // HT ; avoir = charge négative
   state.four = four; save(); f.ref.value = ''; f.montant.value = ''; render();
 };
 $('#dDate').onchange = e => setDate(e.target.value);
@@ -1623,6 +1668,8 @@ document.addEventListener('click', async e => {
   const qr = e.target.closest('[data-qui]');
   if (qr) { state.qQui = qr.dataset.qui; return quiCard(); }
   if (e.target.closest('[data-qall]')) { e.preventDefault(); state.qQui = ''; return quiCard(); }
+  const gl = e.target.closest('[data-go]');
+  if (gl) { e.preventDefault(); return go(gl.dataset.go); }
   const fpr = e.target.closest('[data-facprint]');
   if (fpr) return facPrint(blFacs[+fpr.dataset.facprint]);
   const fun = e.target.closest('[data-facundo]'), F = fun && blFacs[+fun.dataset.facundo];
@@ -1636,7 +1683,7 @@ document.addEventListener('click', async e => {
   const cr = e.target.closest('[data-client]');
   if (cr) { state.client = cr.dataset.client; document.querySelector('#p-clients .fClient').elements.client.value = state.client; clients(); return $('#clDet').scrollIntoView({ behavior: 'smooth' }); }
   const fr = e.target.closest('[data-four]');
-  if (fr) { state.four = state.blFour = fr.dataset.four; $('#fOp').elements.four.value = state.four; fournisseurs(); return $('#fDet').scrollIntoView({ behavior: 'smooth' }); }
+  if (fr) { state.four = fr.dataset.four; $('#fOp').elements.four.value = state.four; fournisseurs(); return $('#fDet').scrollIntoView({ behavior: 'smooth' }); }
   const del = e.target.closest('[data-del]'), day = e.target.closest('[data-day]'), mo = e.target.closest('[data-month]');
   if (del) {
     const c = db.charges.find(x => x.id === del.dataset.del);
