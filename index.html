@@ -154,7 +154,8 @@ dialog::backdrop{background:rgba(0,0,0,.45)}dialog p{margin:0 0 10px;font-size:1
   /* relevé de compte seul (bouton « Imprimer / PDF ») */
   body.prt main{display:none!important}
   body.prt #printArea{display:block;page:releve;font-size:12px}
-  body.prt #printArea .rhead{display:flex}body.prt #printArea table{font-size:11px}body.prt #printArea th,body.prt #printArea td{padding:5px 6px}
+  body.prt #printArea .rhead{display:flex}body.prt .pjour{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+  body.prt #printArea h2{margin:12px 0 4px}body.prt #printArea .big{font-size:24px}body.prt #printArea .formula{margin-bottom:6px}body.prt #printArea table{font-size:11px}body.prt #printArea th,body.prt #printArea td{padding:5px 6px}
   .rinfo{margin:0 0 12px;line-height:1.6}.rfin{font-size:16px;font-weight:700;margin-top:14px}
 }
 @page releve{size:A4 portrait;margin:14mm}
@@ -204,6 +205,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}dialog p{margin:0 0 10px;font-size:1
     <input type="date" id="dDate" aria-label="Date">
     <button class="btn" id="dNext" aria-label="Jour suivant">▶</button>
     <button class="btn" id="dToday">Aujourd'hui</button>
+    <button class="btn" id="dPrint">Imprimer la journée</button>
   </div>
   <div class="saisie">
     <form id="fJour" class="card" autocomplete="off"></form>
@@ -1139,7 +1141,22 @@ function releveOut(kind, how) {
     <p class="rinfo"><b>${k.qui} : ${esc(nom)}</b>${p.c.tel ? ' · Tél. ' + esc(p.c.tel) : ''}<br>Période : ${per}</p>${releveTable(kind, p, false)}<p class="rfin">${esc(fin)}</p>`;
   printArea();
 }
-function printArea() { // n'imprime que #printArea (relevé, facture), en A4 portrait
+// fiche du jour : la saisie (enregistrée ou en cours) + le panneau de droite + crédits et dépenses du jour
+function jourPrint() {
+  const el = $('#fJour').elements, val = k => el[k].value === '' ? '—' : fmt(+el[k].value) + (k === 'eur' || k === 'versEur' ? ' €' : '');
+  const panneau = $('#live').cloneNode(true);
+  panneau.querySelector('.unsaved')?.remove();
+  const jour = new Date(state.date + 'T00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  $('#printArea').innerHTML = `<div class="rhead"><h1>${ENSEIGNE} — Saisie du jour</h1><div class="sub">${jour}${draft ? ' · <b>non enregistrée</b>' : ''}<br>Édité le ${fd(today())}</div></div>
+    <div class="pjour"><div>` + GROUPS.map(([g, titre]) => `<h2>${titre}</h2><table><tbody>` +
+      F.filter(f => f[2] === g).map(([k, l]) => `<tr><td class="t">${l}</td><td>${val(k)}</td></tr>`).join('') + '</tbody></table>').join('') +
+      (el.obs.value ? `<h2>Observation</h2><p>${esc(el.obs.value)}</p>` : '') + `</div><div>${panneau.innerHTML}</div></div>
+    <h2>Crédit clients de ce jour</h2>${$('#dayCred').innerHTML}
+    <h2>Dépenses / charges de ce jour</h2>${$('#dayCh').innerHTML}
+    <p class="rinfo" style="margin-top:28px">Visa du responsable (${RESP}) : ________________________</p>`;
+  printArea();
+}
+function printArea() { // n'imprime que #printArea (relevé, facture, fiche du jour), en A4 portrait
   document.body.classList.add('prt');
   addEventListener('afterprint', () => document.body.classList.remove('prt'), { once: true });
   print();
@@ -1617,6 +1634,7 @@ $('#dDate').onchange = e => setDate(e.target.value);
 $('#dPrev').onclick = () => setDate(addDays(state.date, -1));
 $('#dNext').onclick = () => setDate(addDays(state.date, 1));
 $('#dToday').onclick = () => setDate(today());
+$('#dPrint').onclick = jourPrint;
 $('#yr').onchange = e => { state.year = +e.target.value || state.year; bilan(); };
 $('#xMonth').onclick = exportMonth; $('#xYear').onclick = exportYear; $('#bSave').onclick = backup;
 $('#bLoad').onchange = e => { restore(e.target.files[0]); e.target.value = ''; };
