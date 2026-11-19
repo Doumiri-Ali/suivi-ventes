@@ -136,6 +136,8 @@ dialog::backdrop{background:rgba(0,0,0,.45)}dialog p{margin:0 0 10px;font-size:1
 .bil .bt td{background:var(--g);color:#fff;font-weight:700}
 .bil .br td,.bil .bm td{background:color-mix(in srgb,#f2c94c 30%,var(--surface));font-weight:700}
 .bil td small{display:block;font-weight:400;font-size:11.5px;color:var(--ink2)}
+/* tableau d'amortissement : total de chaque année, mois choisi en surbrillance */
+tr.ytot td{font-weight:700;background:var(--wash)}tr.now td{background:rgba(237,161,0,.14)}
 @media (max-width:860px){.saisie,.grid2{grid-template-columns:1fr}.live{position:static}.addc,.addc.wd,.addc.mv{grid-template-columns:1fr 1fr}.kpi.lead{grid-column:1/-1}}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -176,8 +178,9 @@ dialog::backdrop{background:rgba(0,0,0,.45)}dialog p{margin:0 0 10px;font-size:1
     <button data-p="fournisseurs">Fournisseurs</button>
     <button data-p="bl" class="sub">Bons de livraison</button>
     <button data-p="clients">Clients</button>
+    <button data-p="amort">Amortissements</button>
     <span class="nl">Rapports</span>
-    <button data-p="rapport">Rapport du mois</button>
+    <button data-p="rapport">Rapport</button>
     <button data-p="bilan">Bilan mensuel</button>
     <button data-p="params">Paramètres &amp; sauvegarde</button>
   </nav>
@@ -378,13 +381,44 @@ dialog::backdrop{background:rgba(0,0,0,.45)}dialog p{margin:0 0 10px;font-size:1
 </section>
 
 <section id="p-rapport" class="page" hidden>
-  <div class="bar"><h1>Rapport du mois</h1><input type="month" class="ym" aria-label="Mois">
+  <div class="bar"><h1>Rapport</h1>
+    <label class="tl">Du <input type="month" class="ym" aria-label="Premier mois"></label>
+    <label class="tl">au <input type="month" id="rAu" aria-label="Dernier mois (laisser le même mois pour un seul mois)"></label>
     <button class="btn" onclick="print()">Imprimer / Enregistrer en PDF</button><button class="btn pri" id="xMonth">Exporter Excel</button></div>
   <div id="rapport"></div>
 </section>
 
+<section id="p-amort" class="page" hidden>
+  <div class="bar"><h1>Amortissements du matériel</h1><input type="month" class="ym" aria-label="Mois">
+    <button class="btn" onclick="print()">Imprimer / PDF</button><button class="btn pri" id="xImmo">Exporter Excel</button></div>
+  <div class="kpis" id="imTiles"></div>
+  <div class="card noprint"><h2>Nouveau matériel</h2>
+    <form id="fImmo" class="addf" autocomplete="off">
+      <input type="date" name="date" required aria-label="Date d'achat">
+      <input name="lib" placeholder="Désignation (ex : four, frigo)" required aria-label="Désignation">
+      <input name="cat" list="imCats" placeholder="Catégorie" aria-label="Catégorie">
+      <input name="ttc" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Prix d'achat TTC (DH)" required aria-label="Prix d'achat TTC">
+      <select name="tva" aria-label="TVA de l'achat"><option value="0">TVA 0 %</option><option value="7">TVA 7 %</option><option value="10">TVA 10 %</option><option value="14">TVA 14 %</option><option value="20" selected>TVA 20 %</option></select>
+      <label class="tl ech">Taux / an <input name="taux" type="number" step="0.01" min="0" list="imTaux" value="20" aria-label="Taux d'amortissement par an (%)"> %</label>
+      <label class="tl ech">Durée <input name="mois" type="number" step="1" min="1" value="60" aria-label="Durée d'amortissement en mois"> mois</label>
+      <button class="btn pri">Ajouter</button>
+      <datalist id="imCats"><option>Matériel de cuisine</option><option>Mobilier</option><option>Matériel informatique</option><option>Agencements et installations</option><option>Matériel de transport</option></datalist>
+      <datalist id="imTaux"><option value="10"><option value="15"><option value="20"><option value="25"><option value="33.33"></datalist>
+    </form>
+    <p class="help" style="margin:0">Un matériel (four, frigo, mobilier, ordinateur…) ne compte pas dans les charges en une seule fois : son prix <b>HT</b> est réparti sur sa durée, mois par mois, à partir du mois d'achat.
+      Chaque mois, cette part (l'amortissement) compte dans les charges du rapport et du bilan, et la TVA de l'achat compte dans la TVA récupérable du mois d'achat.
+      Ne le saisissez donc <b>pas aussi</b> dans Charges ou Fournisseurs. S'il a été payé avec l'argent de la caisse, ajoutez une sortie dans la page Caisse.
+      Taux / an et durée vont ensemble (20 % = 60 mois). Taux courants : mobilier, agencements 10 % · matériel de cuisine 10–15 % · informatique, transport 20–25 %.</p>
+  </div>
+  <div class="card"><h2 id="imH"></h2><div class="tw" id="imList"></div></div>
+  <div class="card" id="imDet" hidden></div>
+</section>
+
 <section id="p-bilan" class="page" hidden>
-  <div class="bar"><h1>Bilan mois par mois</h1><input type="number" id="yr" min="2000" max="2100" style="width:100px" aria-label="Année">
+  <div class="bar"><h1>Bilan mois par mois</h1>
+    <label class="tl">Année <input type="number" id="yr" min="2000" max="2100" style="width:90px" aria-label="Année (toute l'année)"></label>
+    <label class="tl">ou du <input type="month" id="bDu" aria-label="Premier mois"></label>
+    <label class="tl">au <input type="month" id="bAu" aria-label="Dernier mois"></label>
     <button class="btn" onclick="print()">Imprimer / PDF</button><button class="btn pri" id="xYear">Exporter Excel</button></div>
   <div class="card"><h2>CA HT et charges par mois (DH)</h2>
     <div class="legend"><span><i style="background:var(--s1)"></i>CA HT</span><span><i style="background:var(--s2)"></i>Charges</span></div>
@@ -506,7 +540,13 @@ const today = () => isoOf(new Date());
 const addDays = (d, n) => { const t = new Date(d + 'T00:00'); t.setDate(t.getDate() + n); return isoOf(t); };
 const daysOf = ym => { const [y, m] = ym.split('-').map(Number); return Array.from({ length: new Date(y, m, 0).getDate() }, (_, i) => `${ym}-${pad(i + 1)}`); };
 const prevYm = ym => { const [y, m] = ym.split('-').map(Number); return isoOf(new Date(y, m - 2, 1)).slice(0, 7); };
+const nextYm = ym => { const [y, m] = ym.split('-').map(Number); return isoOf(new Date(y, m, 1)).slice(0, 7); };
+// ponytail: plafond de 20 ans pour qu'une date tapée de travers ne bloque pas la page
+const monthsOf = (a, b) => { const o = [a]; while (o.at(-1) < b && o.length < 240) o.push(nextYm(o.at(-1))); return o; };
+// date dans la période a → b ; a et b : 'AAAA-MM' (un mois) ou 'AAAA' (une année)
+const inP = (date, a, b = a) => date.slice(0, a.length) >= a && date.slice(0, b.length) <= b;
 const mName = ym => new Date(ym + '-01T00:00').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+const pName = (a, b) => a === b ? mName(a) : `${mName(a)} → ${mName(b)}`;
 const dLabel = d => new Date(d + 'T00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
 const fd = d => d.split('-').reverse().join('/');
 const nf = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -519,7 +559,7 @@ const sumBy = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
 
 // ---------- stockage ----------
 const withUsed = (cats, charges = []) => [...new Set([...cats, ...charges.map(c => c.cat)])];
-const DEF = () => ({ jours: {}, charges: [], mvts: [], fours: [], paiements: [], clients: [], cops: [], ...defCats(), params: { soldeInitial: 0, fondCaisse: 0, euro: 0, taux: 10, tvaVentes: 10, delaiFour: 60, alerteEch: 7 }, lastBackup: null });
+const DEF = () => ({ jours: {}, charges: [], mvts: [], fours: [], paiements: [], clients: [], cops: [], immos: [], ...defCats(), params: { soldeInitial: 0, fondCaisse: 0, euro: 0, taux: 10, tvaVentes: 10, delaiFour: 60, alerteEch: 7 }, lastBackup: null });
 // Les données vont dans un fichier Excel choisi par l'utilisateur (Chrome / Edge).
 // Le navigateur en garde aussi une copie (localStorage), utilisée si le fichier n'est pas accessible.
 function load() {
@@ -646,6 +686,11 @@ function demoData() {
     const cb = sumBy(Object.keys(d.jours).filter(k => k.startsWith(ym)), k => d.jours[k].cb);
     if (cb) C(ym + '-28', 'Commission CMI', cb * .015, 'Banque');      // commission TPE du mois
   }
+  // matériel amorti : un ancien (bientôt fini), un gros achat en début d'année, du mobilier et une caisse
+  const y = +t.slice(0, 4);
+  d.immos = [[`${y - 4}-03-10`, 'Climatisation salle', 'Agencements et installations', 24000, 60], [months[0] + '-15', 'Four mixte professionnel', 'Matériel de cuisine', 50000, 60],
+    [months[1] + '-03', 'Caisse enregistreuse + écran', 'Matériel informatique', 9600, 48], [months[3] + '-20', 'Tables et chaises terrasse', 'Mobilier', 36000, 120]]
+    .map(([date, lib, cat, ttc, mois]) => ({ id: uid(), date, lib, cat, ttc, tva: 20, mois }));
   // délais de paiement négociés : poissonnerie 15 jours, fromagerie 30, les autres au délai par défaut
   for (const c of d.charges) { const dl = { 'Poissonnerie du Port': 15, 'Fromagerie du Centre': 30 }[c.four]; if (dl && c.source === 'Fournisseur' && c.montant > 0 && !c.bl) c.ech = addDays(c.date, dl); }
   return d;
@@ -723,14 +768,35 @@ async function initFile() { // reprendre le fichier utilisé la dernière fois
   } catch (e) { fileState = 'err'; fileErr = e.message; renderBanner(); }
 }
 
+// ---------- immobilisations : amortissement linéaire, mois par mois ----------
+const DOT_CAT = 'Dotations aux amortissements';
+const htOf = i => cent((+i.ttc || 0) / (1 + (+i.tva || 0) / 100));
+const tauxOf = i => String(+(1200 / i.mois).toFixed(2)).replace('.', ',') + ' %';   // 60 mois = 20 % par an
+// tableau d'amortissement : le mois d'achat compte en entier, le dernier mois prend l'arrondi (cumul = valeur HT au centime)
+function plan(i) {
+  const ht = htOf(i), n = Math.max(1, Math.round(+i.mois || 0)), m = cent(ht / n), o = [];
+  let ym = i.date.slice(0, 7), cum = 0;
+  for (let k = 0; k < n; k++, ym = nextYm(ym)) { const dot = k < n - 1 ? m : cent(ht - cum); cum = cent(cum + dot); o.push({ ym, dot, cum, vnc: cent(ht - cum) }); }
+  return o;
+}
+// situation d'un matériel à la fin du mois `ym`
+function situ(i, ym) {
+  const p = plan(i), last = p.filter(x => x.ym <= ym).at(-1), ht = htOf(i);
+  return { p, ht, m: p[0].dot, dot: p.find(x => x.ym === ym)?.dot || 0, cum: last?.cum || 0, vnc: last ? last.vnc : ht, fin: p.at(-1).ym };
+}
+// dotations jusqu'au mois en cours : une charge HT au 1er du mois, hors caisse (le matériel est payé une seule fois, à l'achat)
+const dotations = (d = db) => (d.immos || []).flatMap(i => plan(i).filter(p => p.ym <= today().slice(0, 7))
+  .map(p => ({ date: p.ym + '-01', cat: DOT_CAT, lib: i.lib, montant: p.dot, source: 'Amortissement' })));
+
 // ---------- calculs (les formules de la feuille Excel) ----------
 function ledger(d = db) {
-  const byDate = {}, mvByDate = {}, payByDate = {}, coByDate = {};
-  for (const c of d.charges) (byDate[c.date] ??= []).push(c);
+  const byDate = {}, mvByDate = {}, payByDate = {}, coByDate = {}, tvaImmo = {};
+  for (const c of [...d.charges, ...dotations(d)]) (byDate[c.date] ??= []).push(c);
+  for (const i of d.immos || []) tvaImmo[i.date] = cent((tvaImmo[i.date] || 0) + (+i.ttc || 0) - htOf(i)); // TVA de l'achat, récupérable
   for (const m of d.mvts) (mvByDate[m.date] ??= []).push(m);
   for (const p of d.paiements) if (p.mode === 'Caisse') (payByDate[p.date] ??= []).push(p);
   for (const o of d.cops) (coByDate[o.date] ??= []).push(o);
-  const dates = [...new Set([d.jours, byDate, mvByDate, payByDate, coByDate].flatMap(Object.keys))].sort();
+  const dates = [...new Set([d.jours, byDate, mvByDate, payByDate, coByDate, tvaImmo].flatMap(Object.keys))].sort();
   let reste = +d.params.soldeInitial || 0, credit = sumBy(d.clients, c => +c.solde0 || 0), eur = +d.params.euro || 0;
   const kHT = 1 + (+d.params.tvaVentes || 0) / 100, taux = +d.params.taux || 0; // les montants saisis sont TTC
   // ponytail: euros convertis au taux actuel des paramètres, même pour les jours passés ; un taux par jour si le change compte
@@ -742,7 +808,7 @@ function ledger(d = db) {
     r.dep = sumBy(ch.filter(c => c.source === 'Caisse'), ttcOf) + r.payF;                // argent sorti de la caisse (TTC)
     r.charges = sumBy(ch.filter(isCharge), c => +c.montant || 0);          // factures fournisseurs : HT
     r.tvaPayee = sumBy(ch.filter(c => !isCharge(c)), c => +c.montant || 0); // TVA versée à la DGI : pas une charge
-    r.tvaRec = sumBy(ch, c => (+c.montant || 0) * (+c.tva || 0) / 100);   // TVA des factures, récupérable
+    r.tvaRec = sumBy(ch, c => (+c.montant || 0) * (+c.tva || 0) / 100) + (tvaImmo[date] || 0); // TVA des factures et du matériel, récupérable
     r.eurDh = r.eur * taux; r.versEurDh = r.versEur * taux;                // euros reçus / sortis, en DH
     // crédit clients : ventes à crédit et remboursements nominatifs (onglet Clients) ; seul le remboursement en espèces entre en caisse
     const co = coByDate[date] || [], rb = co.filter(o => o.type !== 'Crédit');
@@ -761,7 +827,7 @@ function ledger(d = db) {
   });
 }
 const totals = rows => Object.fromEntries(NUM.map(k => [k, sumBy(rows, r => r[k])]));
-const monthRows = (L, ym) => L.filter(r => r.date.startsWith(ym));
+const monthRows = (L, a, b = a) => L.filter(r => inP(r.date, a, b));
 function at(L, date) { // Reste, crédit en cours et euros en caisse à la fin de `date`
   let reste = +db.params.soldeInitial || 0, credit = sumBy(db.clients, c => +c.solde0 || 0), eur = +db.params.euro || 0;
   for (const r of L) { if (r.date > date) break; reste = r.reste; credit = r.credit; eur = r.eurCaisse; }
@@ -772,9 +838,9 @@ function monthDays(L, ym) {
   let carry = at(L, addDays(ym + '-01', -1)).reste;
   return daysOf(ym).map(date => { const r = map[date]; if (r) carry = r.reste; return { date, r, reste: date <= t || r ? carry : null }; });
 }
-const chargesByCat = ym => {
+const chargesByCat = (a, b = a) => {
   const o = {};
-  for (const c of db.charges) if (c.date.startsWith(ym) && isCharge(c)) o[c.cat] = (o[c.cat] || 0) + (+c.montant || 0);
+  for (const c of [...db.charges, ...dotations()]) if (inP(c.date, a, b) && isCharge(c)) o[c.cat] = (o[c.cat] || 0) + (+c.montant || 0);
   return Object.entries(o);
 };
 
@@ -833,30 +899,33 @@ function colChart(el, labels, tipLabels, series, ref) {
 // ---------- statistiques du mois (une seule fois, réutilisées par le tableau de bord et le rapport) ----------
 const DOW = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 const DOWS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-function stats(ym) {
-  const L = ledger(), rows = monthRows(L, ym), t = totals(rows), all = daysOf(ym), td = today();
+function stats(ym, to = ym) { // un mois, ou la période ym → to (rapport)
+  const months = monthsOf(ym, to), many = months.length > 1;
+  const L = ledger(), rows = monthRows(L, ym, to), t = totals(rows), all = months.flatMap(daysOf), td = today();
   const ref = all.at(-1) < td ? all.at(-1) : td > all[0] ? td : all[0];   // dernier jour à prendre en compte
   const elapsed = all.filter(d => d <= ref).length;
   const map = Object.fromEntries(rows.map(r => [r.date, r]));
   const act = rows.filter(r => r.ca > 0);                                  // jours réellement travaillés
   const avg = act.length ? t.ca / act.length : 0;
-  // mois précédent ramené à la même période (1er → même quantième), sinon la comparaison est fausse
-  const prev = prevYm(ym), pRows = monthRows(L, prev), p = totals(pRows.filter(r => r.date.slice(8) <= ref.slice(8)));
+  // période précédente (autant de mois juste avant), son dernier mois ramené au même quantième, sinon la comparaison est fausse
+  const prev = prevYm(ym), pFrom = months.slice(1).reduce(prevYm, prev), pRows = monthRows(L, pFrom, prev);
+  const p = totals(pRows.filter(r => r.date.slice(0, 7) < prev || r.date.slice(8) <= ref.slice(8)));
   const dow = Array.from({ length: 7 }, () => [0, 0]);
   for (const r of act) { const d = new Date(r.date + 'T00:00').getDay(); dow[d][0]++; dow[d][1] += r.ca; }
   const cum = (rws, n) => { const m = {}; let c = 0; for (const r of rws) m[+r.date.slice(8)] = r.ca; return Array.from({ length: n }, (_, i) => c += (m[i + 1] || 0)); };
   const res = t.ca - t.charges;
   return {
-    ym, L, rows, t, all, ref, elapsed, map, act, avg, prev, p, res,
+    ym, to, months, many, L, rows, t, all, ref, elapsed, map, act, avg, prev, p, res,
+    pName: pName(pFrom, prev), lbl: many ? 'sur la période' : 'ce mois',
     delta: p.ca ? (t.ca - p.ca) / p.ca * 100 : null,
     dowAvg: dow.map(([n, v]) => n ? v / n : 0),
     best: act.length ? act.reduce((a, b) => b.ca > a.ca ? b : a) : null,
     end: at(L, ref),
     marge: t.ca ? res / t.ca * 100 : 0,
-    cats: chargesByCat(ym).sort((a, b) => b[1] - a[1]),
+    cats: chargesByCat(ym, to).sort((a, b) => b[1] - a[1]),
     pertes: t.remise + t.offert + t.perte + t.annul,
     // projection : rythme des jours écoulés étendu au mois entier (mois en cours uniquement)
-    proj: ym === td.slice(0, 7) && elapsed > 0 && elapsed < all.length ? t.ca / elapsed * all.length : null,
+    proj: !many && ym === td.slice(0, 7) && elapsed > 0 && elapsed < all.length ? t.ca / elapsed * all.length : null,
     mix: [['Espèce', t.esp], ['Espèce en euros', t.eurDh], ['Carte crédit', t.cb], ['Virement / Chèque', t.vir], ['Glovo en ligne', t.glovoLigne], ['Crédit client', t.creditClient]],
     cumA: cum(rows, elapsed), cumP: cum(pRows, daysOf(prev).length),
   };
@@ -867,10 +936,10 @@ function insights(s) {
   if (!s.act.length) return o;
   const t = s.t;
   if (s.delta != null) add(s.delta >= 0 ? 'up' : 'dn', `CA ${s.delta >= 0 ? 'en hausse' : 'en baisse'} de ${pct(Math.abs(s.delta))}`,
-    `${fmt(t.ca)} DH contre ${fmt(s.p.ca)} DH sur la même période de ${mName(s.prev)}.`);
+    `${fmt(t.ca)} DH contre ${fmt(s.p.ca)} DH sur la même période de ${s.pName}.`);
   if (s.proj) add('', `Projection fin de mois : ${fmt(s.proj)} DH`, `au rythme des ${s.elapsed} premiers jours (${fmt(t.ca / s.elapsed)} DH par jour de calendrier).`);
   if (s.best) add('up', `Meilleur jour : ${dLabel(s.best.date)} avec ${fmt(s.best.ca)} DH`,
-    s.avg ? `soit ${(s.best.ca / s.avg).toFixed(1).replace('.', ',')} fois la moyenne du mois (${fmt(s.avg)} DH).` : '');
+    s.avg ? `soit ${(s.best.ca / s.avg).toFixed(1).replace('.', ',')} fois la moyenne ${s.many ? 'de la période' : 'du mois'} (${fmt(s.avg)} DH).` : '');
   const d = s.dowAvg.map((v, i) => [v, i]).filter(x => x[0] > 0).sort((a, b) => b[0] - a[0]);
   if (d.length > 2) add('', `Le ${DOW[d[0][1]]} est votre meilleur jour de la semaine`,
     `${fmt(d[0][0])} DH en moyenne, ${pct((d[0][0] / d.at(-1)[0] - 1) * 100)} de plus que le ${DOW[d.at(-1)[1]]} (${fmt(d.at(-1)[0])} DH).`);
@@ -880,7 +949,7 @@ function insights(s) {
   const dc = t.creditClient - t.creditPaye;
   const du = creditDu(s.ref);
   if (du > 0) add(dc > 0 ? 'dn' : 'up', `${fmt(du)} DH de crédit client à récupérer`,
-    dc ? `${dc > 0 ? 'en hausse de ' : 'en baisse de '}${fmt(Math.abs(dc))} DH ce mois (${fmt(t.creditClient)} DH accordés, ${fmt(t.creditPaye)} DH remboursés).` : 'stable ce mois.');
+    dc ? `${dc > 0 ? 'en hausse de ' : 'en baisse de '}${fmt(Math.abs(dc))} DH ${s.lbl} (${fmt(t.creditClient)} DH accordés, ${fmt(t.creditPaye)} DH remboursés).` : `stable ${s.lbl}.`);
   if (s.pertes > 0 && t.ca) add(s.pertes / t.ca > .03 ? 'dn' : '', `Remises, offerts, pertes et annulations : ${fmt(s.pertes)} DH`, `${pct(s.pertes / t.ca * 100)} du chiffre d'affaires.`);
   const miss = s.all.filter(x => x <= s.ref && !(s.map[x]?.ca > 0)).length;
   if (miss) add('', `${miss} jour${miss > 1 ? 's' : ''} sans vente saisie`, 'fermeture, ou saisie en retard : à vérifier avant de lire les moyennes.');
@@ -922,7 +991,8 @@ async function guard(msg, ok = 'Supprimer', title = 'Confirmer la suppression') 
 const needPwd = () => { if (!DEMO && !db.pwd && fileState !== 'reconnect' && !$('#pwdDlg').open) setupPwd(); };
 
 // ---------- pages ----------
-const state = { page: location.hash.slice(1), ym: today().slice(0, 7), date: today(), year: new Date().getFullYear(), four: null, client: null, du: '', au: '' }; // du / au : période des relevés
+const state = { page: location.hash.slice(1), ym: today().slice(0, 7), ym2: '', date: today(), year: new Date().getFullYear(), four: null, client: null, du: '', au: '' };
+// ym2 : dernier mois du rapport (vide = un seul mois) ; du / au : période des relevés ; bDu / bAu : mois du bilan (vide = toute l'année)
 
 function dash() {
   const ech = echeances();
@@ -1008,7 +1078,8 @@ function charges() {
   // mois en cours : on compare à la même période du mois précédent (1er → même quantième)
   const pm = prevYm(state.ym), cut = state.ym === today().slice(0, 7) ? today().slice(8) : '31', per = cut < '31' ? `1–${+cut} ` : '';
   const totP = sumBy(db.charges.filter(c => c.date.startsWith(pm) && c.date.slice(8) <= cut && isCharge(c)), c => +c.montant), d = totP ? (tot - totP) / totP * 100 : null;
-  const ca = totals(monthRows(ledger(), state.ym)).ca, cats = chargesByCat(state.ym).sort((a, b) => b[1] - a[1]);
+  // ici seulement les charges saisies : l'amortissement du matériel a sa propre page
+  const ca = totals(monthRows(ledger(), state.ym)).ca, cats = chargesByCat(state.ym).filter(c => c[0] !== DOT_CAT).sort((a, b) => b[1] - a[1]);
   // plus de charges = mauvais signe : flèche ▲ en rouge
   $('#chTiles').innerHTML = kpi('Charges — ' + mName(state.ym), fmt(tot) + ' DH',
       (d == null ? `${ch.length} charge(s)` : `<span class="dc ${d > 0 ? 'dn' : 'up'}">${d >= 0 ? '▲' : '▼'} ${pct(Math.abs(d))}</span> vs ${per}${mName(pm)} (${fmt(totP)} DH)`) + (ca ? ` · ${pct(tot / ca * 100)} du CA HT` : ''), 'lead') +
@@ -1361,18 +1432,23 @@ function clients() {
     (c.ops.length ? '' : `<button class="btn noprint" data-delclient="${esc(c.nom)}">Supprimer ce client</button>`);
 }
 
+// période du rapport : du mois choisi (state.ym) au dernier mois (state.ym2), un seul mois par défaut
+const rPeriod = () => { const ym = state.ym, to = state.ym2 > ym ? state.ym2 : ym; return { ym, to, months: monthsOf(ym, to), many: to !== ym, nom: pName(ym, to) }; };
+const rKeys = R => R.many ? [...R.months, [R.ym, R.to]] : [R.ym]; // colonnes du bilan : chaque mois, puis le total de la période
 function rapport() {
-  const st = stats(state.ym), L = st.L, ym = st.ym, t = st.t, p = db.params, days = monthDays(L, ym);
+  const R = rPeriod(), st = stats(R.ym, R.to), L = st.L, ym = st.ym, t = st.t, p = db.params, days = R.months.flatMap(m => monthDays(L, m));
+  $('#rAu').value = R.to; $('#rAu').min = ym;
   const endReste = days.filter(d => d.reste != null).at(-1)?.reste ?? at(L, ym + '-01').reste, endEur = st.end.eur, eurDh = endEur * p.taux;
   const cell = (d, k) => k === 'date' ? fd(d.date) : k === 'reste' ? (d.reste == null ? '' : fmt(d.reste)) : !d.r ? '' : k === 'obs' ? esc(d.r.obs) : d.r[k] ? fmt(d.r[k]) : '';
-  const period = st.elapsed < st.all.length ? `1–${+st.ref.slice(8)} ` : '';
-  const ch = db.charges.filter(c => c.date.startsWith(ym)).sort((a, b) => a.date.localeCompare(b.date) || a.cat.localeCompare(b.cat));
+  const period = !R.many && st.elapsed < st.all.length ? `1–${+st.ref.slice(8)} ` : '', sur = R.many ? 'sur la période' : 'sur le mois';
+  const ch = db.charges.filter(c => inP(c.date, ym, R.to)).sort((a, b) => a.date.localeCompare(b.date) || a.cat.localeCompare(b.cat));
+  const dot = st.cats.find(c => c[0] === DOT_CAT)?.[1] || 0, MT = R.months.map(m => totals(monthRows(L, m)));
   $('#rapport').innerHTML = `
-  <div class="rhead"><h1>Suivi des Ventes TM — ${mName(ym)}</h1>
-    <div class="sub">Rapport mensuel · édité le ${fd(today())}<br>${st.act.length} jour(s) avec ventes sur ${st.all.length}</div></div>
+  <div class="rhead"><h1>Suivi des Ventes TM — ${R.nom}</h1>
+    <div class="sub">${R.many ? `Rapport de ${R.months.length} mois` : 'Rapport mensuel'} · édité le ${fd(today())}<br>${st.act.length} jour(s) avec ventes sur ${st.all.length}</div></div>
   <div class="kpis">
-    ${kpi('Chiffre d\'affaires HT', fmt(t.ca) + ' DH', (st.delta == null ? mName(ym) : `${dchip(st.delta)} vs ${period}${mName(st.prev)}`) + ` · TTC ${fmt(t.caTTC)} DH`, 'lead')}
-    ${kpi('Total des charges', fmt(t.charges), (t.ca ? pct(t.charges / t.ca * 100) + ' du CA HT' : '') + (t.tvaPayee ? ` · hors TVA payée (${fmt(t.tvaPayee)})` : ''))}
+    ${kpi('Chiffre d\'affaires HT' + (R.many ? ' — ' + R.nom : ''), fmt(t.ca) + ' DH', (st.delta == null ? R.nom : `${dchip(st.delta)} vs ${period}${st.pName}`) + ` · TTC ${fmt(t.caTTC)} DH`, 'lead')}
+    ${kpi('Total des charges', fmt(t.charges), (t.ca ? pct(t.charges / t.ca * 100) + ' du CA HT' : '') + (dot ? ` · dont amortissements ${fmt(dot)}` : '') + (t.tvaPayee ? ` · hors TVA payée (${fmt(t.tvaPayee)})` : ''))}
     ${kpi('Résultat', signed(st.res), 'marge ' + pct(st.marge))}
     ${kpi('CA moyen par jour travaillé', fmt(st.avg), st.act.length + ' jour(s) avec ventes')}
     ${kpi('Reste en caisse', fmt(endReste), 'fin de période')}
@@ -1381,42 +1457,90 @@ function rapport() {
   <div class="card"><h2>Ce qu'il faut retenir</h2>${insList(insights(st))}</div>
   <div class="grid2">
     <div class="card"><h2>D'où vient le chiffre d'affaires (TTC encaissé)</h2>${stackbar(st.mix)}</div>
-    <div class="card"><h2>Charges par catégorie (DH)</h2>${st.cats.length ? hbars(st.cats) : '<p class="empty">Aucune charge ce mois.</p>'}</div>
+    <div class="card"><h2>Charges par catégorie (DH)</h2>${st.cats.length ? hbars(st.cats) : `<p class="empty">Aucune charge ${st.lbl}.</p>`}</div>
   </div>
-  <div class="card"><h2>Chiffre d'affaires HT par jour (DH) — la ligne pointillée est la moyenne du mois</h2><div id="rDay" class="chart"></div></div>
+  <div class="card"><h2>${R.many ? 'CA HT et charges par mois (DH)' : 'Chiffre d\'affaires HT par jour (DH) — la ligne pointillée est la moyenne du mois'}</h2>
+    ${R.many ? '<div class="legend"><span><i style="background:var(--s1)"></i>CA HT</span><span><i style="background:var(--s2)"></i>Charges</span></div>' : ''}<div id="rDay" class="chart"></div></div>
   <div class="grid2">
     <div class="card"><h2>CA HT moyen par jour de la semaine (DH)</h2><div id="rDow" class="chart"></div></div>
     <div class="card"><h2>Caisse en fin de période</h2>
-      ${kv('Euro', `${fmt(endEur)} € × ${p.taux} = ${fmt(eurDh)}`, `${fmt(t.eur)} € encaissés, ${fmt(t.versEur)} € versés sur le mois`)}${kv('Dirhams', fmt(endReste - eurDh))}${kv('<b>Total général</b>', fmt(endReste))}${kv('Fonds de caisse', fmt(p.fondCaisse))}
-      ${kv('Versements à la banque', fmt(t.versement), 'sur le mois')}${kv('Entrées / sorties de caisse', `+${fmt(t.entree)} / −${fmt(t.sortie)}`, 'sur le mois, hors CA')}${t.payF ? kv('Fournisseurs payés en espèces', fmt(t.payF), 'compris dans la colonne Dépense') : ''}${kv('Crédit clients en cours', fmt(creditDu(st.ref)))}
+      ${kv('Euro', `${fmt(endEur)} € × ${p.taux} = ${fmt(eurDh)}`, `${fmt(t.eur)} € encaissés, ${fmt(t.versEur)} € versés ${sur}`)}${kv('Dirhams', fmt(endReste - eurDh))}${kv('<b>Total général</b>', fmt(endReste))}${kv('Fonds de caisse', fmt(p.fondCaisse))}
+      ${kv('Versements à la banque', fmt(t.versement), sur)}${kv('Entrées / sorties de caisse', `+${fmt(t.entree)} / −${fmt(t.sortie)}`, sur + ', hors CA')}${t.payF ? kv('Fournisseurs payés en espèces', fmt(t.payF), 'compris dans la colonne Dépense') : ''}${kv('Crédit clients en cours', fmt(creditDu(st.ref)))}
     </div>
   </div>
-  <div class="card pbreak"><h2>Bilan du mois</h2><div class="tw">${bilanTable([ym], [`<th>${mName(ym)}</th>`])}</div></div>
+  <div class="card pbreak"><h2>${R.many ? 'Bilan mois par mois<span class="noprint"> — cliquez un mois pour ouvrir son rapport</span>' : 'Bilan du mois'}</h2><div class="tw">${bilanTable(rKeys(R),
+    R.many ? [...R.months.map(m => `<th class="click" data-month="${m}">${mName(m)}</th>`), '<th>Total</th>'] : [`<th>${mName(ym)}</th>`])}</div></div>
   <div class="card pbreak"><h2>Détail jour par jour<span class="noprint"> — cliquez une ligne pour la modifier</span></h2><div class="tw"><table>
     <thead><tr>${RCOLS.map(([k, l]) => `<th class="${k === 'obs' ? 't' : ''}">${l}</th>`).join('')}</tr></thead>
     <tbody>${days.map(d => { const wd = new Date(d.date + 'T00:00').getDay(); return `<tr class="click${wd === 0 ? ' we' : ''}" data-day="${d.date}">${RCOLS.map(([k]) => `<td class="${k === 'obs' ? 't' : ''}">${cell(d, k)}</td>`).join('')}</tr>`; }).join('')}</tbody>
     <tfoot><tr>${RCOLS.map(([k]) => `<td>${k === 'date' ? 'Total DH' : k === 'reste' ? fmt(endReste) : k === 'obs' ? '' : fmt(t[k])}</td>`).join('')}</tr></tfoot>
   </table></div></div>
-  <div class="card pbreak"><h2>Détail des charges du mois (${ch.length})</h2>
-    <div class="tw">${ch.length ? chargeTable(ch, true) : '<p class="empty">Aucune charge ce mois.</p>'}</div></div>`;
+  <div class="card pbreak"><h2>Détail des charges ${R.many ? 'de la période' : 'du mois'} (${ch.length})${dot ? ` — hors amortissements (${fmt(dot)}, page Amortissements)` : ''}</h2>
+    <div class="tw">${ch.length ? chargeTable(ch, true) : `<p class="empty">Aucune charge ${st.lbl}.</p>`}</div></div>`;
   const dd = st.all;
-  colChart($('#rDay'), dd.map(d => +d.slice(8)), dd.map(dLabel), [{ name: 'CA HT', color: 'var(--s1)', data: dd.map(d => st.map[d]?.ca || 0) }], st.avg);
+  if (R.many) colChart($('#rDay'), R.months.map(m => new Date(m + '-01T00:00').toLocaleDateString('fr-FR', { month: 'short' })), R.months.map(mName),
+    [{ name: 'CA HT', color: 'var(--s1)', data: MT.map(x => x.ca) }, { name: 'Charges', color: 'var(--s2)', data: MT.map(x => x.charges) }]);
+  else colChart($('#rDay'), dd.map(d => +d.slice(8)), dd.map(dLabel), [{ name: 'CA HT', color: 'var(--s1)', data: dd.map(d => st.map[d]?.ca || 0) }], st.avg);
   colChart($('#rDow'), DOWS, DOW.map(d => 'En moyenne le ' + d), [{ name: 'CA HT moyen', color: 'var(--s1)', data: st.dowAvg }]);
 }
 
+// ---------- page Amortissements : registre du matériel au mois choisi, puis tableau d'amortissement d'un matériel ----------
+const immoList = ym => db.immos.filter(i => i.date.slice(0, 7) <= ym).map(i => ({ i, ...situ(i, ym) })).sort((a, b) => a.i.date.localeCompare(b.i.date));
+function amort() {
+  const f = $('#fImmo'); if (!f.date.value) f.date.value = today();
+  const ym = state.ym, y = ym.slice(0, 4), list = immoList(ym), S = k => sumBy(list, x => x[k]);
+  const anDot = sumBy(db.immos, i => sumBy(plan(i).filter(p => p.ym.startsWith(y)), p => p.dot));
+  $('#imTiles').innerHTML = kpi('Valeur d\'achat HT', fmt(S('ht')), `${list.length} matériel(s) · TTC ${fmt(sumBy(list, x => +x.i.ttc))}`) +
+    kpi('Amortissement — ' + mName(ym), fmt(S('dot')), 'compté dans les charges du mois') +
+    kpi('Amortissements cumulés', fmt(S('cum')), 'fin ' + mName(ym)) +
+    kpi('Valeur nette', fmt(S('vnc')), 'valeur d\'achat HT − amortissements cumulés') +
+    kpi('Amortissements ' + y, fmt(anDot), 'janvier → décembre ' + y);
+  $('#imH').innerHTML = `Matériel au ${fd(daysOf(ym).at(-1))}<span class="noprint"> — cliquez une ligne pour voir son tableau d'amortissement mois par mois</span>`;
+  $('#imList').innerHTML = !list.length ? `<p class="empty">Aucun matériel acheté avant fin ${mName(ym)}.</p>`
+    : `<table><thead><tr><th>Date d'achat</th><th class="t">Désignation</th><th class="t">Catégorie</th><th>Prix TTC</th><th>Valeur HT</th><th>Taux / an</th><th>Durée</th><th>Par mois</th><th>${mName(ym)}</th><th>Cumul amorti</th><th>Valeur nette</th><th>Fin</th><th></th></tr></thead><tbody>` +
+      list.map(x => `<tr class="click${x.i.id === state.immo ? ' now' : ''}" data-immo="${esc(x.i.id)}"><td>${fd(x.i.date)}</td><td class="t">${esc(x.i.lib)}</td><td class="t">${esc(x.i.cat)}</td><td>${fmt(x.i.ttc)}</td><td>${fmt(x.ht)}</td>
+        <td>${tauxOf(x.i)}</td><td>${x.i.mois} mois</td><td>${fmt(x.m)}</td><td>${x.dot ? fmt(x.dot) : ''}</td><td>${fmt(x.cum)}</td><td>${fmt(x.vnc)}</td><td>${x.vnc ? mName(x.fin) : 'amorti ✓'}</td>
+        <td><button class="x" data-delimmo="${esc(x.i.id)}" title="Supprimer" aria-label="Supprimer ${esc(x.i.lib)}">×</button></td></tr>`).join('') +
+      `</tbody><tfoot><tr><td colspan="3">Total</td><td>${fmt(sumBy(list, x => +x.i.ttc))}</td><td>${fmt(S('ht'))}</td><td colspan="3"></td><td>${fmt(S('dot'))}</td><td>${fmt(S('cum'))}</td><td>${fmt(S('vnc'))}</td><td colspan="2"></td></tr></tfoot></table>`;
+  const it = db.immos.find(i => i.id === state.immo);
+  $('#imDet').hidden = !it;
+  if (!it) return;
+  const s = situ(it, ym), years = [...new Set(s.p.map(r => r.ym.slice(0, 4)))];
+  $('#imDet').innerHTML = `<h2>Tableau d'amortissement — ${esc(it.lib)}</h2>
+    <p class="help" style="margin-top:0">Acheté le ${fd(it.date)}${it.cat ? ' · ' + esc(it.cat) : ''} · prix ${fmt(it.ttc)} TTC, dont TVA ${it.tva} % = ${fmt(it.ttc - s.ht)} (récupérable)<br>
+      Valeur amortie : <b>${fmt(s.ht)} HT</b> · <b>${tauxOf(it)}</b> par an · <b>${it.mois} mois</b> (${mName(s.p[0].ym)} → ${mName(s.fin)}) · <b>${fmt(s.m)}</b> par mois, soit ${fmt(s.m * 12)} par an</p>
+    <div class="tw"><table><thead><tr><th>Mois</th><th>Amortissement</th><th>Cumul amorti</th><th>Valeur nette</th></tr></thead><tbody>` +
+    years.map(y => { const ps = s.p.filter(r => r.ym.startsWith(y)), last = ps.at(-1);
+      return ps.map(r => `<tr${r.ym === ym ? ' class="now"' : ''}><td>${mName(r.ym)}</td><td>${fmt(r.dot)}</td><td>${fmt(r.cum)}</td><td>${fmt(r.vnc)}</td></tr>`).join('') +
+        `<tr class="ytot"><td>Total ${y} · ${ps.length} mois</td><td>${fmt(sumBy(ps, r => r.dot))}</td><td>${fmt(last.cum)}</td><td>${fmt(last.vnc)}</td></tr>`; }).join('') +
+    `</tbody></table></div><button class="btn noprint" style="margin-top:12px" data-delimmo="${esc(it.id)}">Supprimer ce matériel</button>`;
+}
+function exportImmo() {
+  const ym = state.ym, list = immoList(ym);
+  if (!list.length) return alert(`Aucun matériel acheté avant fin ${mName(ym)}.`);
+  download(`amortissements-${ym}.xlsx`, [
+    ['Registre', [['Matériel au ' + fd(daysOf(ym).at(-1))], [], ['Date d\'achat', 'Désignation', 'Catégorie', 'Prix TTC', 'TVA %', 'Valeur HT', 'Taux / an %', 'Durée (mois)', 'Par mois', 'Amortissement ' + mName(ym), 'Cumul amorti', 'Valeur nette', 'Fin'],
+      ...list.map(x => [fd(x.i.date), x.i.lib, x.i.cat, x.i.ttc, x.i.tva, x.ht, +(1200 / x.i.mois).toFixed(2), x.i.mois, x.m, x.dot, x.cum, x.vnc, mName(x.fin)]),
+      ['Total', '', '', sumBy(list, x => +x.i.ttc), '', sumBy(list, x => x.ht), '', '', '', sumBy(list, x => x.dot), sumBy(list, x => x.cum), sumBy(list, x => x.vnc)]], [12, 28, 20, 12, 7, 12, 10, 10, 10, 14, 12, 12, 14]],
+    ['Tableaux', [['Désignation', 'Mois', 'Amortissement', 'Cumul amorti', 'Valeur nette'], ...list.flatMap(x => x.p.map(r => [x.i.lib, mName(r.ym), r.dot, r.cum, r.vnc]))], [28, 16, 14, 14, 14]]]);
+}
+
+// période du bilan : toute l'année choisie, ou les mois choisis (du … au …)
+const bPeriod = () => { const a = state.bDu || state.year + '-01', b = state.bAu || state.year + '-12'; return b < a ? [a, a] : [a, b]; };
+const bName = ([a, b]) => a.endsWith('-01') && b === a.slice(0, 4) + '-12' ? a.slice(0, 4) : pName(a, b);
 function yearData() {
-  const L = ledger(), Y = state.year;
-  return Array.from({ length: 12 }, (_, i) => {
-    const ym = `${Y}-${pad(i + 1)}`, rows = monthRows(L, ym), t = totals(rows);
-    return { ym, label: new Date(Y, i, 1).toLocaleDateString('fr-FR', { month: 'short' }), t, has: rows.length > 0 };
+  const L = ledger(), [a, b] = bPeriod(), yy = a.slice(0, 4) !== b.slice(0, 4); // sur deux années : « janv. 26 »
+  return monthsOf(a, b).map(ym => {
+    const rows = monthRows(L, ym), t = totals(rows);
+    return { ym, label: new Date(ym + '-01T00:00').toLocaleDateString('fr-FR', { month: 'short' }) + (yy ? ' ' + ym.slice(2, 4) : ''), t, has: rows.length > 0 };
   });
 }
 // ---------- bilan « TABLE M » (présentation de la feuille du client) ----------
 // TOTAL REVENUS = C.A HT ; RESTE = revenus − dépenses fixes ; RESTE AU TOTAL = RESTE − dépenses variables (= résultat)
 const REV = [['ca', 'C.A HT'], ['caTTC', 'C.A TTC'], ['esp', 'CV Espèce'], ['eurDh', 'CV Espèce Euro (en DH)'], ['cb', 'CV Carte Crédit'], ['vir', 'CV Vir/Chèque'], ['creditClient', 'Crédit Client'], ['creditPaye', 'Crédit payé'], ['glovoLigne', 'Glovo/En ligne'], ['glovoEsp', 'Glovo/Espèce']];
-function bilanRows(keys) { // une colonne par clé : 'AAAA-MM' (un mois) ou 'AAAA' (l'année)
-  const L = ledger(), T = keys.map(k => totals(monthRows(L, k))), C = keys.map(k => Object.fromEntries(chargesByCat(k)));
-  const cats = withUsed(db.cats, db.charges), rows = [], line = (label, vals, cls) => rows.push({ k: 'l', label, vals, cls });
+function bilanRows(keys) { // une colonne par clé : 'AAAA-MM' (un mois), 'AAAA' (l'année) ou ['AAAA-MM', 'AAAA-MM'] (une période)
+  const L = ledger(), T = keys.map(k => totals(monthRows(L, ...[].concat(k)))), C = keys.map(k => Object.fromEntries(chargesByCat(...[].concat(k))));
+  const cats = withUsed(db.cats, [...db.charges, ...dotations()]), rows = [], line = (label, vals, cls) => rows.push({ k: 'l', label, vals, cls });
   const block = (title, gs, cls) => {
     rows.push({ k: 'h', label: title, cls });
     const sum = keys.map(() => 0);
@@ -1440,7 +1564,7 @@ function bilanRows(keys) { // une colonne par clé : 'AAAA-MM' (un mois) ou 'AAA
   // TVA : hors résultat, pour savoir ce qui est dû à la DGI
   rows.push({ k: 'h', label: 'TVA (hors résultat)', cls: 'tva' });
   line('TVA collectée sur les ventes', T.map(t => t.tvaCol), 'tva');
-  line('TVA récupérable (factures fournisseurs)', T.map(t => t.tvaRec), 'tva');
+  line('TVA récupérable (factures fournisseurs et matériel)', T.map(t => t.tvaRec), 'tva');
   rows.push({ k: 't', label: 'TVA À PAYER', vals: T.map(t => t.tvaCol - t.tvaRec), cls: 'tva' });
   line('TVA payée à la DGI', T.map(t => t.tvaPayee), 'tva');
   return rows;
@@ -1453,13 +1577,16 @@ function bilanTable(keys, heads) {
 }
 const bilanAoa = (keys, heads) => [['TABLE M', ...heads], ...bilanRows(keys).map(r => !r.vals ? [r.label]
   : [r.label + (r.sub ? ' ' + r.sub : ''), ...r.vals.map(v => v == null ? '' : r.k === 'm' ? Math.round(v * 10) / 10 : r.k === 'l' && !v ? '' : v)])];
-const yearKeys = () => { const has = yearData().filter(m => m.has).map(m => m.ym); return has.length ? [...has, String(state.year)] : []; };
+// colonnes : les mois avec des données, puis le total de la période (inutile pour un seul mois)
+const yearKeys = () => { const has = yearData().filter(m => m.has).map(m => m.ym); return has.length > 1 ? [...has, bPeriod()] : has; };
+const yearHead = k => Array.isArray(k) ? 'Total ' + bName(k) : mName(k);
 function bilan() {
-  $('#yr').value = state.year;
+  const [a, b] = bPeriod();
+  $('#yr').value = state.year; $('#bDu').value = a; $('#bAu').value = b; $('#bAu').min = a;
   const M = yearData(), keys = yearKeys();
   colChart($('#chYear'), M.map(m => m.label), M.map(m => mName(m.ym)), [{ name: 'CA HT', color: 'var(--s1)', data: M.map(m => m.t.ca) }, { name: 'Charges', color: 'var(--s2)', data: M.map(m => m.t.charges) }]);
-  $('#yTable').innerHTML = !keys.length ? `<p class="empty">Aucune donnée pour ${state.year}.</p>`
-    : bilanTable(keys, keys.map(k => k.length > 4 ? `<th class="click" data-month="${k}">${mName(k)}</th>` : `<th>Total ${k}</th>`));
+  $('#yTable').innerHTML = !keys.length ? `<p class="empty">Aucune donnée pour ${bName([a, b])}.</p>`
+    : bilanTable(keys, keys.map(k => Array.isArray(k) ? `<th>${yearHead(k)}</th>` : `<th class="click" data-month="${k}">${mName(k)}</th>`));
 }
 
 function params() {
@@ -1481,21 +1608,23 @@ function book(sheets) {
 }
 const download = (name, sheets) => XLSX.writeFile(book(sheets), name);
 function exportMonth() {
-  const L = ledger(), ym = state.ym, days = monthDays(L, ym), t = totals(monthRows(L, ym)), p = db.params;
-  const endReste = days.filter(d => d.reste != null).at(-1)?.reste ?? 0, endEur = at(L, daysOf(ym).at(-1)).eur, eurDh = endEur * p.taux;
+  const R = rPeriod(), ym = R.ym, L = ledger(), days = R.months.flatMap(m => monthDays(L, m)), t = totals(monthRows(L, ym, R.to)), p = db.params;
+  const endReste = days.filter(d => d.reste != null).at(-1)?.reste ?? 0, endEur = at(L, daysOf(R.to).at(-1)).eur, eurDh = endEur * p.taux;
   const val = (d, k) => k === 'date' ? fd(d.date) : k === 'reste' ? d.reste ?? '' : !d.r ? '' : k === 'obs' ? d.r.obs : d.r[k] || '';
-  const aoa = [['Suivi des Ventes TM — ' + mName(ym)], [], RCOLS.map(c => c[1]), ...days.map(d => RCOLS.map(([k]) => val(d, k))),
+  const dot = sumBy(dotations().filter(c => inP(c.date, ym, R.to)), c => c.montant), keys = rKeys(R);
+  const aoa = [['Suivi des Ventes TM — ' + R.nom], [], RCOLS.map(c => c[1]), ...days.map(d => RCOLS.map(([k]) => val(d, k))),
     RCOLS.map(([k]) => k === 'date' ? 'Total dhs' : k === 'reste' ? endReste : k === 'obs' ? '' : t[k]), [],
     ['Euro', endEur, '× ' + p.taux, eurDh], ['DHS', endReste - eurDh], ['Total Général', endReste], ['Fonds Caisse', p.fondCaisse], [],
-    ['CA HT', t.ca], ['Total charges (HT, hors TVA)', t.charges], ['Résultat (CA HT − charges)', t.ca - t.charges]];
-  const ch = db.charges.filter(c => c.date.startsWith(ym)).sort((a, b) => a.date.localeCompare(b.date));
-  download(`rapport-${ym}.xlsx`, [[mName(ym), aoa, RCOLS.map(c => c[0] === 'obs' ? 30 : 12)], ['Bilan', bilanAoa([ym], [mName(ym)]), [44, 16]],
+    ['CA HT', t.ca], ['Total charges (HT, hors TVA)', t.charges], ...(dot ? [['dont amortissements du matériel', dot]] : []), ['Résultat (CA HT − charges)', t.ca - t.charges]];
+  const ch = db.charges.filter(c => inP(c.date, ym, R.to)).sort((a, b) => a.date.localeCompare(b.date));
+  download(`rapport-${R.many ? ym + '_' + R.to : ym}.xlsx`, [[R.many ? 'Rapport' : mName(ym), aoa, RCOLS.map(c => c[0] === 'obs' ? 30 : 12)],
+    ['Bilan', bilanAoa(keys, keys.map(k => Array.isArray(k) ? 'Total' : mName(k))), [44, ...keys.map(() => 16)]],
     ['Charges', [['Date', 'Catégorie', 'Libellé', 'Fournisseur', 'Source', 'Montant'], ...ch.map(c => [fd(c.date), c.cat, c.lib, c.four || '', c.source, c.montant]), [], ['Total', '', '', '', '', t.charges]], [12, 22, 30, 22, 11, 12]]]);
 }
 function exportYear() {
-  const keys = yearKeys();
-  if (!keys.length) return alert('Aucune donnée pour ' + state.year + '.');
-  download(`bilan-${state.year}.xlsx`, [['Bilan ' + state.year, bilanAoa(keys, keys.map(k => k.length > 4 ? mName(k) : 'Total ' + k)), [44, ...keys.map(() => 15)]]]);
+  const keys = yearKeys(), [a, b] = bPeriod(), n = bName([a, b]), year = n.length === 4;
+  if (!keys.length) return alert('Aucune donnée pour ' + n + '.');
+  download(`bilan-${year ? n : a + '_' + b}.xlsx`, [[year ? 'Bilan ' + n : 'Bilan', bilanAoa(keys, keys.map(yearHead)), [44, ...keys.map(() => 15)]]]);
 }
 // Le classeur de données : Journal + Charges + Paramètres sont relus par fromWorkbook, Calculs est pour lecture dans Excel
 function toWorkbook() {
@@ -1509,6 +1638,8 @@ function toWorkbook() {
     ['Crédits clients', [['Date', 'Client', 'Type', 'Montant', 'Mode', 'Détail'], ...[...db.cops].sort((a, b) => a.date.localeCompare(b.date)).map(o => [o.date, o.client, o.type, o.montant, o.mode, o.note])], [12, 26, 14, 12, 10, 30]],
     ['Paiements', [['Date', 'Fournisseur', 'Montant', 'Mode', 'Référence'], ...[...db.paiements].sort((a, b) => a.date.localeCompare(b.date)).map(p => [p.date, p.four, p.montant, p.mode, p.ref])], [12, 26, 12, 10, 14]],
     ['Caisse', [['Date', 'Type', 'Montant', 'Motif', 'À qui'], ...[...db.mvts].sort((a, b) => a.date.localeCompare(b.date)).map(m => [m.date, m.type, m.montant, m.motif, m.benef || ''])], [12, 10, 12, 30, 20]],
+    ['Immobilisations', [['Date', 'Désignation', 'Catégorie', 'Prix TTC', 'TVA %', 'Durée (mois)', 'Valeur HT', 'Taux / an %', 'Par mois'], ...[...db.immos].sort((a, b) => a.date.localeCompare(b.date))
+      .map(i => [i.date, i.lib, i.cat, i.ttc, i.tva, i.mois, htOf(i), +(1200 / i.mois).toFixed(2), plan(i)[0].dot])], [12, 28, 20, 12, 7, 12, 12, 11, 10]],
     ['Catégories', [['Catégorie', 'Groupe'], ...db.cats.map(c => [c, grpOf(c)])], [34, 30]],
     ['Paramètres', [['Clé', 'Valeur'], ...Object.entries(db.params), ['savedAt', db.savedAt || 0], ['pwd', db.pwd || '']], [16, 14]],
     ['Calculs', [['Date', 'CA HT', 'CA TTC', 'Dépense caisse', 'Reçu', 'Versement', 'Entrée caisse', 'Sortie caisse', 'Reste', 'Crédit en cours', 'Euros en caisse (€)'], ...L.map(r => [r.date, r.ca, r.caTTC, r.dep, r.recu, r.versement, r.entree, r.sortie, r.reste, r.credit, r.eurCaisse])], [12, 12, 12, 14, 12, 12, 13, 13, 12, 14, 16]],
@@ -1536,6 +1667,8 @@ function fromWorkbook(wb) {
   for (const r of PA || []) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.paiements.push({ id: uid(), date: d, four: String(r.Fournisseur || '').trim(), montant: num(r.Montant), mode: r.Mode === 'Banque' ? 'Banque' : 'Caisse', ref: String(r['Référence'] || '') }); }
   nd.fours = (FO || []).map(r => ({ nom: String(r.Nom || '').trim(), tel: String(r['Téléphone'] || ''), solde0: num(r['Solde de départ']) })).filter(f => f.nom);
   for (const n of [...nd.charges.map(c => c.four), ...nd.paiements.map(p => p.four)]) if (n && !nd.fours.some(f => f.nom === n)) nd.fours.push({ nom: n, tel: '', solde0: 0 });
+  for (const r of rows('Immobilisations') || []) { const d = toIso(r.Date); if (d && num(r['Prix TTC']) > 0) nd.immos.push({ id: uid(), date: d, lib: String(r['Désignation'] || ''),
+    cat: String(r['Catégorie'] || ''), ttc: num(r['Prix TTC']), tva: num(r['TVA %']), mois: Math.max(1, Math.round(num(r['Durée (mois)']))) }); }
   for (const r of M || []) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.mvts.push({ id: uid(), date: d, type: r.Type === 'Entrée' ? 'Entrée' : 'Sortie', montant: num(r.Montant), motif: String(r.Motif || ''), benef: String(r['À qui'] || '') }); }
   const names = K ? [...new Set(K.map(r => String(r['Catégorie']).trim()).filter(Boolean))] : [];
   if ((XLSX.utils.sheet_to_json(wb.Sheets['Catégories'] || {}, { header: 1 })[0] || []).includes('Groupe')) { nd.cats = names; nd.catGrp = Object.fromEntries(K.map(r => [String(r['Catégorie']).trim(), String(r.Groupe)])); }
@@ -1564,7 +1697,7 @@ async function restore(file) {
 }
 
 // ---------- navigation & événements ----------
-const PAGES = { dash, saisie, charges, caisse, fournisseurs, bl, clients, rapport, bilan, params };
+const PAGES = { dash, saisie, charges, caisse, fournisseurs, bl, clients, amort, rapport, bilan, params };
 function render() {
   if (!PAGES[state.page]) state.page = 'dash';
   document.querySelectorAll('.page').forEach(s => s.hidden = s.id !== 'p-' + state.page);
@@ -1634,7 +1767,8 @@ addEventListener('beforeunload', e => { if (draft) e.preventDefault(); });
 
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => go(b.dataset.p));
 document.addEventListener('change', async e => {
-  if (e.target.matches('.ym') && e.target.value) { state.ym = e.target.value; state.qDu = state.qAu = state.qQui = ''; render(); }
+  if (e.target.matches('.ym') && e.target.value) { state.ym = e.target.value; state.qDu = state.qAu = state.qQui = ''; if (state.page !== 'rapport') state.ym2 = ''; render(); }
+  if (e.target.id === 'rAu') { state.ym2 = e.target.value; return rapport(); }
   // modifier un paramètre enregistré : mot de passe (refusé → la valeur d'avant revient)
   const pk = e.target.dataset?.param;
   if (pk) { const v = num(e.target.value); if (await guard(`« ${PARAMS.find(x => x[0] === pk)[1]} » : ${fmt(db.params[pk])} → ${fmt(v)}`, 'Modifier', 'Modifier un réglage')) { db.params[pk] = v; save(); } return render(); }
@@ -1699,6 +1833,13 @@ $('#fCat').onsubmit = async e => {
   addCat(n, g); e.target.c.value = ''; render();
 };
 
+$('#fImmo').onsubmit = e => {
+  e.preventDefault();
+  const f = e.target.elements, ttc = num(f.ttc.value), mois = Math.round(num(f.mois.value));
+  if (!f.date.value || !(ttc > 0) || !(mois > 0)) return alert('Indiquez la date d\'achat, le prix TTC et la durée (en mois).');
+  const i = { id: uid(), date: f.date.value, lib: f.lib.value.trim(), cat: f.cat.value.trim(), ttc, tva: +f.tva.value, mois };
+  db.immos.push(i); state.immo = i.id; save(); f.lib.value = ''; f.ttc.value = ''; render(); flash(`${i.lib} ajouté ✓`);
+};
 $('#fMvt').onsubmit = e => {
   e.preventDefault();
   const f = e.target.elements, m = num(f.montant.value);
@@ -1723,8 +1864,10 @@ $('#dPrev').onclick = () => setDate(addDays(state.date, -1));
 $('#dNext').onclick = () => setDate(addDays(state.date, 1));
 $('#dToday').onclick = () => setDate(today());
 $('#dPrint').onclick = jourPrint;
-$('#yr').onchange = e => { state.year = +e.target.value || state.year; bilan(); };
-$('#xMonth').onclick = exportMonth; $('#xYear').onclick = exportYear; $('#bSave').onclick = backup;
+$('#yr').onchange = e => { state.year = +e.target.value || state.year; state.bDu = state.bAu = ''; bilan(); }; // une année = janvier → décembre
+$('#bDu').onchange = e => { if (!e.target.value) return; [state.bDu, state.bAu] = bPeriod(); state.bDu = e.target.value; if (state.bAu < state.bDu) state.bAu = state.bDu; bilan(); };
+$('#bAu').onchange = e => { if (!e.target.value) return; [state.bDu, state.bAu] = bPeriod(); state.bAu = e.target.value; if (state.bAu < state.bDu) state.bDu = state.bAu; bilan(); };
+$('#xMonth').onclick = exportMonth; $('#xYear').onclick = exportYear; $('#xImmo').onclick = exportImmo; $('#bSave').onclick = backup;
 $('#bLoad').onchange = e => { restore(e.target.files[0]); e.target.value = ''; };
 
 buildJourForm();
@@ -1771,6 +1914,10 @@ document.addEventListener('click', async e => {
   if (pay) { if (await guard(`Supprimer le paiement de ${fmt(pay.montant)} DH à ${pay.four} du ${fd(pay.date)} ?`)) { db.paiements = db.paiements.filter(x => x !== pay); save(); render(); } return; }
   const df = e.target.closest('[data-delfour]');
   if (df) { if (await guard(`Supprimer le fournisseur « ${df.dataset.delfour} » ?`)) { db.fours = db.fours.filter(x => x.nom !== df.dataset.delfour); state.four = null; save(); render(); } return; }
+  const di = e.target.closest('[data-delimmo]'), im = di && db.immos.find(x => x.id === di.dataset.delimmo);
+  if (im) { if (await guard(`Supprimer « ${im.lib} » (${fmt(im.ttc)} DH TTC, acheté le ${fd(im.date)}) et tous ses amortissements ?`)) { db.immos = db.immos.filter(x => x !== im); save(); render(); } return; }
+  const ir = e.target.closest('[data-immo]');
+  if (ir) { state.immo = ir.dataset.immo; amort(); return $('#imDet').scrollIntoView({ behavior: 'smooth' }); }
   if (e.target.closest('[data-esort]')) { state.eSort = state.eSort === 'desc' ? 'asc' : 'desc'; return echCard(); }
   const qr = e.target.closest('[data-qui]');
   if (qr) { state.qQui = qr.dataset.qui; return quiCard(); }
@@ -1796,12 +1943,17 @@ document.addEventListener('click', async e => {
     const c = db.charges.find(x => x.id === del.dataset.del);
     if (c && await guard(`Supprimer la charge « ${c.cat} ${c.lib} » de ${fmt(c.montant)} DH ?`)) { db.charges = db.charges.filter(x => x !== c); save(); render(); }
   } else if (day) { if (leaveDraft()) { state.date = day.dataset.day; go('saisie'); } }
-  else if (mo) { state.ym = mo.dataset.month; go('rapport'); }
+  else if (mo) { state.ym = mo.dataset.month; state.ym2 = ''; go('rapport'); }
 });
 
 // date de facture → échéance proposée (date + délai), tant que l'échéance n'a pas été changée à la main
 document.addEventListener('input', e => {
   const f = e.target.form;
+  // matériel : taux par an et durée en mois vont ensemble (20 % ↔ 60 mois)
+  if (f?.id === 'fImmo' && ['taux', 'mois'].includes(e.target.name) && num(e.target.value) > 0) {
+    const v = num(e.target.value);
+    if (e.target.name === 'taux') f.mois.value = Math.round(1200 / v); else f.taux.value = +(1200 / v).toFixed(2);
+  }
   if (e.target.name === 'ech') e.target.dataset.auto = '0';
   else if (e.target.name === 'date' && f?.ech && f.ech.dataset.auto !== '0') f.ech.value = echDefaut(e.target.value);
 });
@@ -1861,6 +2013,18 @@ if (location.search.includes('test')) {
   checks['CA HT'] = H.caTTC === 1800 && Math.abs(H.ca * 1.1 - 1800) < 1e-9 && Math.abs(H.ca + H.tvaCol - 1800) < 1e-9;
   const B = bilanRows(['2026-10']), bv = l => B.find(x => x.label === l).vals[0];
   checks['Bilan TABLE M'] = bv('TOTAL REVENUS') === 1800 && bv('TOTAL DÉPENSES FIXES') === 150 && bv('TOTAL DÉPENSES VARIABLES') === 300 && bv('RESTE AU TOTAL') === st.res && bv('TVA payée à la DGI') === 500;
+  // période de plusieurs mois (rapport, bilan) : septembre → novembre = les données d'octobre
+  const BP = bilanRows([['2026-09', '2026-11']]), sp = stats('2026-09', '2026-11');
+  checks['Période de mois'] = BP.find(x => x.label === 'TOTAL REVENUS').vals[0] === 1800 && sp.t.ca === 1800 && sp.months.length === 3 && sp.all.length === 91 && !sp.proj;
+  // matériel 50 000 TTC à 20 % sur 60 mois, acheté le 15/01/2026 : 41 666,67 HT, 694,44 par mois, tout amorti fin décembre 2030 (arrondi sur le dernier mois)
+  const IM = { date: '2026-01-15', ttc: 50000, tva: 20, mois: 60 }, PL = plan(IM), s7 = situ(IM, '2026-07');
+  checks['Tableau d\'amortissement'] = PL.length === 60 && PL[0].ym === '2026-01' && PL[0].dot === 694.44 && PL.at(-1).ym === '2030-12' && PL.at(-1).cum === 41666.67
+    && PL.at(-1).vnc === 0 && cent(sumBy(PL, p => p.dot)) === 41666.67 && s7.cum === 4861.08 && s7.vnc === 36805.59 && s7.dot === 694.44;
+  // l'amortissement est une charge HT au 1er du mois, hors caisse ; la TVA de l'achat est récupérable le jour de l'achat
+  db = { ...DEF(), immos: [IM] };
+  const LI = ledger(), j15 = LI.find(x => x.date === '2026-01-15');
+  checks['Amortissement dans les charges'] = LI[0].date === '2026-01-01' && LI[0].charges === 694.44 && LI[0].dep === 0 && LI[0].reste === 0 && j15.tvaRec === 8333.33 && j15.charges === 0
+    && Object.fromEntries(chargesByCat('2026-02'))[DOT_CAT] === 694.44;
   db = real;
   const mg = migrateCats(['Achats marchandises', 'Transport', 'Ma catégorie'], [{ cat: 'Achats marchandises' }]);
   checks['Migration catégories'] = mg.cats.includes('Achats marchandises') && mg.cats.includes('Ma catégorie') && !mg.cats.includes('Transport') && mg.cats.includes('Boucherie');
