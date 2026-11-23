@@ -429,7 +429,7 @@ tr.ytot td{font-weight:700;background:var(--wash)}tr.now td{background:rgba(237,
   <div class="card"><h2>CA HT et charges par mois (DH)</h2>
     <div class="legend"><span><i style="background:var(--s1)"></i>CA HT</span><span><i style="background:var(--s2)"></i>Charges</span></div>
     <div id="chYear" class="chart"></div></div>
-  <div class="card"><h2>Bilan TABLE M<span class="noprint"> — cliquez un mois pour ouvrir son rapport</span></h2><div class="tw" id="yTable"></div></div>
+  <div class="card"><h2>Bilan TABLE M — montants HT<span class="noprint"> — cliquez un mois pour ouvrir son rapport</span></h2><div class="tw" id="yTable"></div></div>
 </section>
 
 <section id="p-params" class="page" hidden>
@@ -1552,7 +1552,8 @@ function yearData() {
 }
 // ---------- bilan « TABLE M » (présentation de la feuille du client) ----------
 // TOTAL REVENUS = C.A HT ; RESTE = revenus − dépenses fixes ; RESTE AU TOTAL = RESTE − dépenses variables (= résultat)
-const REV = [['ca', 'C.A HT'], ['caTTC', 'C.A TTC'], ['esp', 'CV Espèce'], ['eurDh', 'CV Espèce Euro (en DH)'], ['cb', 'CV Carte Crédit'], ['vir', 'CV Vir/Chèque'], ['creditClient', 'Crédit Client'], ['creditPaye', 'Crédit payé'], ['glovoLigne', 'Glovo/En ligne'], ['glovoEsp', 'Glovo/Espèce']];
+// tout le bilan est HT : les ventes par mode de paiement (saisies TTC) sont ramenées HT, comme le C.A ; les charges sont déjà HT
+const REV = [['ca', 'C.A HT'], ['esp', 'CV Espèce'], ['eurDh', 'CV Espèce Euro (en DH)'], ['cb', 'CV Carte Crédit'], ['vir', 'CV Vir/Chèque'], ['creditClient', 'Crédit Client'], ['creditPaye', 'Crédit payé'], ['glovoLigne', 'Glovo/En ligne'], ['glovoEsp', 'Glovo/Espèce']];
 function bilanRows(keys) { // une colonne par clé : 'AAAA-MM' (un mois), 'AAAA' (l'année) ou ['AAAA-MM', 'AAAA-MM'] (une période)
   const L = ledger(), T = keys.map(k => totals(monthRows(L, ...[].concat(k)))), C = keys.map(k => Object.fromEntries(chargesByCat(...[].concat(k))));
   const cats = withUsed(db.cats, [...db.charges, ...dotations()]), rows = [], line = (label, vals, cls) => rows.push({ k: 'l', label, vals, cls });
@@ -1567,7 +1568,8 @@ function bilanRows(keys) { // une colonne par clé : 'AAAA-MM' (un mois), 'AAAA'
     return sum;
   };
   rows.push({ k: 'h', label: 'REVENUS', cls: 'rev' });
-  for (const [k, l] of REV) line(l, T.map(t => t[k]), 'rev');
+  const kHT = 1 + (+db.params.tvaVentes || 0) / 100;
+  for (const [k, l] of REV) line(l, T.map(t => k === 'ca' ? t.ca : t[k] / kHT), 'rev');
   line('Fond de caisse', keys.map(() => +db.params.fondCaisse || 0), 'rev');
   const rev = T.map(t => t.ca);
   rows.push({ k: 't', label: 'TOTAL REVENUS', vals: rev, cls: 'rev' });
@@ -1586,11 +1588,11 @@ function bilanRows(keys) { // une colonne par clé : 'AAAA-MM' (un mois), 'AAAA'
 }
 function bilanTable(keys, heads) {
   const cell = (r, v) => v == null ? '—' : r.k === 'm' ? pct(v) : r.k === 'r' ? signed(v) : r.k === 'l' && !v ? '' : fmt(v);
-  return `<table class="bil"><thead><tr><th>TABLE M</th>${heads.join('')}</tr></thead><tbody>` + bilanRows(keys).map(r => r.vals
+  return `<table class="bil"><thead><tr><th>TABLE M (HT)</th>${heads.join('')}</tr></thead><tbody>` + bilanRows(keys).map(r => r.vals
     ? `<tr class="b${r.k} ${r.cls || ''}"><td>${esc(r.label)}${r.sub ? `<small>${r.sub}</small>` : ''}</td>${r.vals.map(v => `<td>${cell(r, v)}</td>`).join('')}</tr>`
     : `<tr class="b${r.k} ${r.cls}"><td colspan="${keys.length + 1}">${esc(r.label)}</td></tr>`).join('') + '</tbody></table>';
 }
-const bilanAoa = (keys, heads) => [['TABLE M', ...heads], ...bilanRows(keys).map(r => !r.vals ? [r.label]
+const bilanAoa = (keys, heads) => [['TABLE M (HT)', ...heads], ...bilanRows(keys).map(r => !r.vals ? [r.label]
   : [r.label + (r.sub ? ' ' + r.sub : ''), ...r.vals.map(v => v == null ? '' : r.k === 'm' ? Math.round(v * 10) / 10 : r.k === 'l' && !v ? '' : v)])];
 // colonnes : les mois avec des données, puis le total de la période (inutile pour un seul mois)
 const yearKeys = () => { const has = yearData().filter(m => m.has).map(m => m.ym); return has.length > 1 ? [...has, bPeriod()] : has; };
@@ -2030,6 +2032,11 @@ if (location.search.includes('test')) {
   checks['CA HT'] = H.caTTC === 1800 && Math.abs(H.ca * 1.1 - 1800) < 1e-9 && Math.abs(H.ca + H.tvaCol - 1800) < 1e-9;
   const B = bilanRows(['2026-10']), bv = l => B.find(x => x.label === l).vals[0];
   checks['Bilan TABLE M'] = bv('TOTAL REVENUS') === 1800 && bv('TOTAL DÉPENSES FIXES') === 150 && bv('TOTAL DÉPENSES VARIABLES') === 300 && bv('RESTE AU TOTAL') === st.res && bv('TVA payée à la DGI') === 500;
+  // bilan tout en HT : pas de ligne TTC, ventes par mode de paiement ÷ 1,1 avec une TVA de 10 %
+  db = { ...FIX, params: { ...FIX.params, tvaVentes: 10 } };
+  const BH = bilanRows(['2026-10']), bh = l => BH.find(x => x.label === l)?.vals[0];
+  checks['Bilan en HT'] = bh('C.A TTC') === undefined && Math.abs(bh('CV Espèce') * 1.1 - 1000) < 1e-9 && Math.abs(bh('C.A HT') * 1.1 - 1800) < 1e-9 && Math.abs(bh('TOTAL REVENUS') * 1.1 - 1800) < 1e-9;
+  db = FIX;
   // période de plusieurs mois (rapport, bilan) : septembre → novembre = les données d'octobre
   const BP = bilanRows([['2026-09', '2026-11']]), sp = stats('2026-09', '2026-11');
   checks['Période de mois'] = BP.find(x => x.label === 'TOTAL REVENUS').vals[0] === 1800 && sp.t.ca === 1800 && sp.months.length === 3 && sp.all.length === 91 && !sp.proj;
