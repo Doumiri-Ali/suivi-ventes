@@ -410,7 +410,13 @@ tr.ytot td{font-weight:700;background:var(--wash)}tr.now td{background:rgba(237,
       Ne le saisissez donc <b>pas aussi</b> dans Charges ou Fournisseurs. S'il a été payé avec l'argent de la caisse, ajoutez une sortie dans la page Caisse.
       Taux / an et durée vont ensemble (20 % = 60 mois). Taux courants : mobilier, agencements 10 % · matériel de cuisine 10–15 % · informatique, transport 20–25 %.</p>
   </div>
-  <div class="card"><h2 id="imH"></h2><div class="tw" id="imList"></div></div>
+  <div class="card"><h2 id="imH"></h2>
+    <div class="bar noprint" style="margin:0 0 10px">
+      <input type="search" id="imQ" placeholder="Rechercher : désignation, catégorie, date, prix…" style="min-width:260px" aria-label="Rechercher un matériel">
+      <select id="imCat" aria-label="Catégorie"></select>
+      <select id="imStat" aria-label="État"><option value="">En cours et amortis</option><option value="cours">En cours d'amortissement</option><option value="fini">Amortis</option></select>
+    </div>
+    <div class="tw" id="imList"></div></div>
   <div class="card" id="imDet" hidden></div>
 </section>
 
@@ -1485,18 +1491,27 @@ function rapport() {
 }
 
 // ---------- page Amortissements : registre du matériel au mois choisi, puis tableau d'amortissement d'un matériel ----------
-const immoList = ym => db.immos.filter(i => i.date.slice(0, 7) <= ym).map(i => ({ i, ...situ(i, ym) })).sort((a, b) => a.i.date.localeCompare(b.i.date));
+// filtres : recherche (sans accents ni majuscules), catégorie, état — les totaux et l'export Excel suivent les filtres
+const fold = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').toLowerCase();   // \s : aussi les espaces des milliers (50 000)
+const immoMatch = i => { const q = fold(state.imQ).trim();
+  return (!state.imCat || i.cat === state.imCat) && (!q || fold([i.lib, i.cat, fd(i.date), mName(i.date.slice(0, 7)), i.ttc, fmt(i.ttc)].join(' ')).includes(q)); };
+const immoList = ym => db.immos.filter(i => i.date.slice(0, 7) <= ym && immoMatch(i)).map(i => ({ i, ...situ(i, ym) }))
+  .filter(x => !state.imStat || (state.imStat === 'fini') === !x.vnc).sort((a, b) => a.i.date.localeCompare(b.i.date));
 function amort() {
   const f = $('#fImmo'); if (!f.date.value) f.date.value = today();
   const ym = state.ym, y = ym.slice(0, 4), list = immoList(ym), S = k => sumBy(list, x => x[k]);
-  const anDot = sumBy(db.immos, i => sumBy(plan(i).filter(p => p.ym.startsWith(y)), p => p.dot));
+  const anDot = sumBy(db.immos.filter(immoMatch), i => sumBy(plan(i).filter(p => p.ym.startsWith(y)), p => p.dot));
+  const cats = [...new Set(db.immos.map(i => i.cat).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
+  $('#imCat').innerHTML = '<option value="">Toutes les catégories</option>' + cats.map(c => `<option${c === state.imCat ? ' selected' : ''}>${esc(c)}</option>`).join('');
+  $('#imStat').value = state.imStat || '';
+  const filtered = state.imQ || state.imCat || state.imStat;
   $('#imTiles').innerHTML = kpi('Valeur d\'achat HT', fmt(S('ht')), `${list.length} matériel(s) · TTC ${fmt(sumBy(list, x => +x.i.ttc))}`) +
     kpi('Amortissement — ' + mName(ym), fmt(S('dot')), 'compté dans les charges du mois') +
     kpi('Amortissements cumulés', fmt(S('cum')), 'fin ' + mName(ym)) +
     kpi('Valeur nette', fmt(S('vnc')), 'valeur d\'achat HT − amortissements cumulés') +
     kpi('Amortissements ' + y, fmt(anDot), 'janvier → décembre ' + y);
   $('#imH').innerHTML = `Matériel au ${fd(daysOf(ym).at(-1))}<span class="noprint"> — cliquez une ligne pour voir son tableau d'amortissement mois par mois</span>`;
-  $('#imList').innerHTML = !list.length ? `<p class="empty">Aucun matériel acheté avant fin ${mName(ym)}.</p>`
+  $('#imList').innerHTML = !list.length ? `<p class="empty">${filtered ? 'Aucun matériel pour ces filtres.' : `Aucun matériel acheté avant fin ${mName(ym)}.`}</p>`
     : `<table><thead><tr><th>Date d'achat</th><th class="t">Désignation</th><th class="t">Catégorie</th><th>Prix TTC</th><th>Valeur HT</th><th>Taux / an</th><th>Durée</th><th>Par mois</th><th>${mName(ym)}</th><th>Cumul amorti</th><th>Valeur nette</th><th>Fin</th><th></th></tr></thead><tbody>` +
       list.map(x => `<tr class="click${x.i.id === state.immo ? ' now' : ''}" data-immo="${esc(x.i.id)}"><td>${fd(x.i.date)}</td><td class="t">${esc(x.i.lib)}</td><td class="t">${esc(x.i.cat)}</td><td>${fmt(x.i.ttc)}</td><td>${fmt(x.ht)}</td>
         <td>${tauxOf(x.i)}</td><td>${x.i.mois} mois</td><td>${fmt(x.m)}</td><td>${x.dot ? fmt(x.dot) : ''}</td><td>${fmt(x.cum)}</td><td>${fmt(x.vnc)}</td><td>${x.vnc ? mName(x.fin) : 'amorti ✓'}</td>
@@ -1948,6 +1963,8 @@ document.addEventListener('click', async e => {
 
 // date de facture → échéance proposée (date + délai), tant que l'échéance n'a pas été changée à la main
 document.addEventListener('input', e => {
+  // amortissements : recherche et filtres, en direct
+  if (['imQ', 'imCat', 'imStat'].includes(e.target.id)) { state[e.target.id] = e.target.value; return amort(); }
   const f = e.target.form;
   // matériel : taux par an et durée en mois vont ensemble (20 % ↔ 60 mois)
   if (f?.id === 'fImmo' && ['taux', 'mois'].includes(e.target.name) && num(e.target.value) > 0) {
@@ -2025,6 +2042,12 @@ if (location.search.includes('test')) {
   const LI = ledger(), j15 = LI.find(x => x.date === '2026-01-15');
   checks['Amortissement dans les charges'] = LI[0].date === '2026-01-01' && LI[0].charges === 694.44 && LI[0].dep === 0 && LI[0].reste === 0 && j15.tvaRec === 8333.33 && j15.charges === 0
     && Object.fromEntries(chargesByCat('2026-02'))[DOT_CAT] === 694.44;
+  // filtres de la page Amortissements : recherche sans accents, catégorie, état (au mois choisi)
+  db = { ...DEF(), immos: [{ ...IM, lib: 'Four à pizza', cat: 'Matériel de cuisine' }, { date: '2020-01-01', lib: 'Réfrigérateur', ttc: 1200, tva: 20, mois: 12 }] };
+  const fl = (imQ, imCat, imStat) => (Object.assign(state, { imQ, imCat, imStat }), immoList('2026-07').map(x => x.i.lib).join());
+  checks['Filtres amortissements'] = fl('REFRI', '', '') === 'Réfrigérateur' && fl('', 'Matériel de cuisine', '') === 'Four à pizza' && fl('50 000', '', '') === 'Four à pizza'
+    && fl('', '', 'fini') === 'Réfrigérateur' && fl('', '', 'cours') === 'Four à pizza' && fl('', '', '') === 'Réfrigérateur,Four à pizza' && fl('rien', '', '') === '';
+  Object.assign(state, { imQ: '', imCat: '', imStat: '' });
   db = real;
   const mg = migrateCats(['Achats marchandises', 'Transport', 'Ma catégorie'], [{ cat: 'Achats marchandises' }]);
   checks['Migration catégories'] = mg.cats.includes('Achats marchandises') && mg.cats.includes('Ma catégorie') && !mg.cats.includes('Transport') && mg.cats.includes('Boucherie');
