@@ -229,15 +229,9 @@ tr.ytot td{font-weight:700;background:var(--wash)}tr.now td{background:rgba(237,
     </form>
     <div class="tw" id="dayCred"></div>
   </div>
-  <div class="card" style="margin-top:16px"><h2>Dépenses / charges de ce jour</h2>
-    <form class="fCharge addc"><input type="hidden" name="date">
-      <select name="cat" aria-label="Catégorie" required></select>
-      <input name="lib" placeholder="Libellé (ex : légumes marché)">
-      <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant TTC" required>
-      <select name="tva" aria-label="TVA"><option value="0" selected>TVA 0 %</option><option value="7">TVA 7 %</option><option value="10">TVA 10 %</option><option value="14">TVA 14 %</option><option value="20">TVA 20 %</option></select>
-      <select name="source"><option>Caisse</option><option>Banque</option></select>
-      <button class="btn pri">Ajouter</button>
-    </form>
+  <div class="card" style="margin-top:16px"><h2>Achats et charges de ce jour</h2>
+    <p class="help noprint" style="margin-top:0">Les achats se saisissent <b>une seule fois</b>, dans <a href="#bl" data-go="bl">Bons de livraison</a> ou <a href="#fournisseurs" data-go="fournisseurs">Fournisseurs</a> (facture) :
+      choisissez « Payé en espèces » et le montant sort de la caisse (colonne Dépense du jour).</p>
     <div id="dayCh"></div>
   </div>
 </section>
@@ -245,19 +239,9 @@ tr.ytot td{font-weight:700;background:var(--wash)}tr.now td{background:rgba(237,
 <section id="p-charges" class="page" hidden>
   <div class="bar"><h1>Charges</h1><input type="month" class="ym" aria-label="Mois"></div>
   <div class="kpis" id="chTiles"></div>
-  <div class="card"><h2>Ajouter une charge</h2>
-    <form class="fCharge addc wd">
-      <input type="date" name="date" required aria-label="Date">
-      <select name="cat" aria-label="Catégorie" required></select>
-      <input name="lib" placeholder="Libellé">
-      <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant TTC" required>
-      <select name="tva" aria-label="TVA"><option value="0" selected>TVA 0 %</option><option value="7">TVA 7 %</option><option value="10">TVA 10 %</option><option value="14">TVA 14 %</option><option value="20">TVA 20 %</option></select>
-      <select name="source"><option>Caisse</option><option>Banque</option></select>
-      <button class="btn pri">Ajouter</button>
-    </form>
-    <p class="help" style="margin:0">Tapez le montant payé (TTC) et son taux de TVA : la charge est enregistrée <b>HT</b> (TVA 0 % = pas de TVA, ex. marché, salaires).
-      « Caisse » = payé avec l'argent de la caisse : le montant sort du Reste en caisse (colonne <b>Dépense</b> du jour). « Banque » = payé par virement / chèque. Les achats à crédit (factures fournisseurs) se saisissent dans l'onglet <b>Fournisseurs</b>.</p>
-  </div>
+  <div class="card noprint"><p class="help" style="margin:0">Cette page récapitule les charges. Les achats se saisissent <b>une seule fois</b>, dans <a href="#bl" data-go="bl">Bons de livraison</a> ou <a href="#fournisseurs" data-go="fournisseurs">Fournisseurs</a> (facture) :
+      choisissez « Payé en espèces » et le montant sort de la caisse (colonne Dépense du jour).
+      Loyer, salaires, électricité, impôts… : créez le bénéficiaire comme fournisseur (ex. « Propriétaire », « Personnel », « DGI ») et saisissez une facture, TVA 0 % si elle n'a pas de TVA.</p></div>
   <div class="card"><h2>Par catégorie</h2><div id="chCat"></div></div>
   <div class="card"><h2>Liste des charges</h2><div class="tw" id="chList"></div></div>
 </section>
@@ -299,17 +283,19 @@ tr.ytot td{font-weight:700;background:var(--wash)}tr.now td{background:rgba(237,
     <form id="fOp" class="addf" autocomplete="off">
       <input type="date" name="date" required aria-label="Date">
       <select name="four" aria-label="Fournisseur"></select>
-      <select name="type" aria-label="Opération"><option value="Facture">Facture (à crédit)</option><option value="Paiement">Paiement</option><option value="Avoir">Avoir / retour</option></select>
+      <select name="type" aria-label="Opération"><option value="Facture">Facture</option><option value="Paiement">Paiement</option><option value="Avoir">Avoir / retour</option></select>
       <input name="ref" placeholder="N° facture / chèque">
       <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant HT (DH)" required>
       <select name="tva" aria-label="TVA de la facture"><option value="0">TVA 0 %</option><option value="7">TVA 7 %</option><option value="10">TVA 10 %</option><option value="14">TVA 14 %</option><option value="20" selected>TVA 20 %</option></select>
       <select name="cat" aria-label="Catégorie"></select>
+      <select name="paye" aria-label="Payé comment"><option value="">À crédit (payé plus tard)</option><option value="Caisse">Payé en espèces (sort de la caisse)</option><option value="Banque">Payé par banque / chèque</option></select>
       <label class="tl ech">Échéance <input type="date" name="ech" aria-label="Échéance (délai de paiement)" data-auto="1"></label>
       <select name="mode" aria-label="Payé par" hidden><option value="Caisse">Payé en espèces (caisse)</option><option value="Banque">Payé par banque / chèque</option></select>
       <button class="btn pri">Ajouter</button>
     </form>
     <p class="help" style="margin:0">Les <b>bons de livraison</b> se saisissent dans la page <a href="#bl" data-go="bl">Bons de livraison</a>.
-      <b>Facture</b> : achat à crédit sans BL, saisi <b>HT</b> avec son taux de TVA — le HT compte dans les charges du mois, le TTC (HT + TVA) est ce que vous devez.
+      <b>Facture</b> : achat sans BL (marchandise, loyer, salaires, électricité, impôts…), saisi <b>HT</b> avec son taux de TVA — le HT compte dans les charges du mois.
+      Payée <b>en espèces</b> : le TTC sort tout de suite de la caisse ; <b>à crédit</b> : le TTC s'ajoute à ce que vous devez au fournisseur.
       <b>Paiement</b> : vous payez le fournisseur — en espèces, il sort de la caisse (colonne Dépense du jour), sans être compté une 2e fois dans les charges.
       <b>Avoir</b> : retour ou remise du fournisseur — diminue ce que vous devez et les charges. Si vous payez plus que les factures (avance), c'est le fournisseur qui vous doit.</p>
   </div>
@@ -338,9 +324,10 @@ tr.ytot td{font-weight:700;background:var(--wash)}tr.now td{background:rgba(237,
       <input name="montant" type="number" step="0.01" inputmode="decimal" placeholder="Montant HT (DH)" required aria-label="Montant HT">
       <select name="tva" aria-label="TVA"><option value="0">TVA 0 %</option><option value="7">TVA 7 %</option><option value="10">TVA 10 %</option><option value="14">TVA 14 %</option><option value="20" selected>TVA 20 %</option></select>
       <select name="cat" aria-label="Catégorie"></select>
+      <select name="paye" aria-label="Payé comment"><option value="">À crédit (payé plus tard)</option><option value="Caisse">Payé en espèces (sort de la caisse)</option><option value="Banque">Payé par banque / chèque</option></select>
       <button class="btn pri">Ajouter le BL</button>
     </form>
-    <p class="help" style="margin:0">Marchandise reçue, pas encore facturée : le BL se saisit <b>HT</b> avec sa TVA. Il compte tout de suite dans les charges et dans ce que vous devez au fournisseur.
+    <p class="help" style="margin:0">Marchandise reçue, pas encore facturée : le BL se saisit <b>HT</b> avec sa TVA. Il compte tout de suite dans les charges ; payé <b>en espèces</b>, le TTC sort de la caisse, sinon il s'ajoute à ce que vous devez au fournisseur.
       Quand la facture arrive, cochez ses BL ci-dessous, tapez le n° et la date de la facture, puis « Générer la facture » : rien n'est compté deux fois.</p>
   </div>
   <div class="card"><h2>Bons de livraison</h2>
@@ -706,10 +693,11 @@ let db = DEMO ? demoData() : load(), savedT;
 function flash(msg) { $('#saved').textContent = msg; $('#saved').classList.add('on'); clearTimeout(savedT); savedT = setTimeout(() => $('#saved').classList.remove('on'), 1500); }
 function save() {
   if (DEMO) return flash('Mode démonstration — rien n\'est enregistré');
+  if (other) return; // une autre fenêtre a l'app : c'est elle qui enregistre
   db.savedAt = Date.now();
   let local = true;
   try { localStorage.setItem(KEY, JSON.stringify(db)); } catch { local = false; }
-  if (fileH && fileState !== 'reconnect') return queueFileSave();
+  if (fileH && fileState !== 'reconnect' && fileState !== 'conflict') return queueFileSave();
   if (!local) return alert("Rien n'est enregistré ! Ouvrez l'app dans Chrome ou Edge et choisissez un fichier de données.");
   flash('Enregistré dans le navigateur');
 }
@@ -717,7 +705,9 @@ navigator.storage?.persist?.();
 
 // ---------- fichier de données ----------
 const FS_OK = 'showSaveFilePicker' in window;
-let fileH = null, fileState = '', fileErr = '', fileT; // fileState : '' | 'reconnect' | 'ok' | 'err'
+let fileH = null, fileState = '', fileErr = '', fileT; // fileState : '' | 'reconnect' | 'ok' | 'err' | 'conflict'
+// date de modification du fichier quand l'app l'a lu ou écrit : si elle change, quelqu'un d'autre l'a modifié (Excel, autre ordinateur)
+let fileStamp = 0, pending = false, other = false;
 // IndexedDB : seul endroit où le navigateur accepte de retenir quel fichier a été choisi
 function idb(mode, fn) {
   return new Promise((res, rej) => {
@@ -730,10 +720,12 @@ function idb(mode, fn) {
 const XLSX_PICK = { types: [{ description: 'Classeur Excel', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }] };
 // mode 'nouveau' : on écrit les données actuelles ; 'ouvrir' : le fichier remplace tout ; 'auto' : la version la plus récente gagne
 async function useFile(h, mode) {
+  fileStamp = 0;
   if (mode !== 'nouveau') {
-    const nd = fromWorkbook(XLSX.read(await (await h.getFile()).arrayBuffer()));
+    const f = await h.getFile(), nd = fromWorkbook(XLSX.read(await f.arrayBuffer()));
     if (!nd) throw new Error("ce fichier n'est pas un fichier de données Suivi des Ventes");
     if (mode === 'ouvrir' || (nd.savedAt || 0) >= (db.savedAt || 0)) db = nd;
+    fileStamp = f.lastModified;
   }
   fileH = h; fileState = 'ok';
   await idb('readwrite', s => s.put(h, 'file'));
@@ -753,16 +745,43 @@ async function openFile() {
 async function reconnect() {
   try { if (await fileH.requestPermission({ mode: 'readwrite' }) === 'granted') await useFile(fileH, 'auto'); } catch (e) { fail(e); }
 }
-const queueFileSave = () => { clearTimeout(fileT); fileT = setTimeout(writeFile, 500); };
+const queueFileSave = () => { pending = true; clearTimeout(fileT); fileT = setTimeout(writeFile, 500); };
 async function writeFile() {
   try {
+    // ponytail: vérifié juste avant d'écrire ; une modification dans la même fraction de seconde passerait
+    if (fileStamp && (await fileH.getFile()).lastModified !== fileStamp) { fileState = 'conflict'; return renderBanner(); }
     const w = await fileH.createWritable();
     await w.write(XLSX.write(toWorkbook(), { type: 'array', bookType: 'xlsx' }));
     await w.close();
+    fileStamp = (await fileH.getFile()).lastModified; pending = false;
     fileState = 'ok'; flash('Enregistré ✓ ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
   } catch (e) { fileState = 'err'; fileErr = e.message; }
   renderBanner();
 }
+// fichier modifié ailleurs : l'utilisateur choisit quelles données garder (une copie de celles de l'app reste dans le navigateur)
+async function takeFile() {
+  if (!(await guard('Reprendre les données du fichier ? Les saisies faites dans l\'app depuis sa modification seront perdues.', 'Reprendre le fichier', 'Fichier modifié ailleurs'))) return;
+  try { localStorage.setItem(KEY + '.avant-rechargement', JSON.stringify(db)); } catch { }
+  try { await useFile(fileH, 'ouvrir'); flash('Données du fichier reprises ✓'); } catch (e) { fail(e); }
+}
+async function keepApp() {
+  if (!(await guard('Garder les données de l\'app ? Les changements faits dans le fichier (Excel, autre ordinateur) seront écrasés.', 'Écraser le fichier', 'Fichier modifié ailleurs'))) return;
+  fileStamp = 0; await writeFile();
+}
+// retour dans l'app (après Excel…) : si le fichier a changé et que l'app n'a rien en attente, on relit le fichier
+addEventListener('focus', async () => {
+  if (fileState !== 'ok' || !fileStamp || pending || other) return;
+  try { if ((await fileH.getFile()).lastModified === fileStamp) return; } catch { return; }
+  if (pending) return; // une saisie est partie entre-temps : writeFile verra le conflit
+  try { localStorage.setItem(KEY + '.avant-rechargement', JSON.stringify(db)); } catch { }
+  try { await useFile(fileH, 'ouvrir'); flash('Fichier modifié ailleurs : données rechargées ✓'); } catch (e) { fileState = 'err'; fileErr = e.message; renderBanner(); }
+});
+// une seule fenêtre à la fois : sinon la dernière qui enregistre efface les saisies de l'autre
+const lockApp = () => DEMO || !navigator.locks ? Promise.resolve(true) : new Promise(res => navigator.locks.request(KEY, { ifAvailable: true }, lock => {
+  if (lock) { res(true); return new Promise(() => {}); }               // verrou gardé tant que la fenêtre est ouverte
+  other = true; $('main').inert = true; res(false);
+  navigator.locks.request(KEY, () => location.reload());                // l'autre fenêtre fermée : on recharge celle-ci
+}));
 async function initFile() { // reprendre le fichier utilisé la dernière fois
   if (!FS_OK || DEMO) return;
   try {
@@ -810,7 +829,7 @@ function ledger(d = db) {
     const j = d.jours[date] || {}, ch = byDate[date] || [], r = { date, obs: j.obs || '' };
     for (const [k] of F) r[k] = +j[k] || 0;
     // fournisseur payé en espèces : sort de la caisse comme une dépense, sans être une charge de plus (la facture l'est déjà)
-    r.payF = sumBy(payByDate[date] || [], p => +p.montant || 0);
+    r.payF = sumBy(payByDate[date] || [], p => +p.montant || 0) + sumBy(ch.filter(c => c.paye === 'Caisse'), ttcOf); // + BL / factures payés en espèces à la réception
     r.dep = sumBy(ch.filter(c => c.source === 'Caisse'), ttcOf) + r.payF;                // argent sorti de la caisse (TTC)
     r.charges = sumBy(ch.filter(isCharge), c => +c.montant || 0);          // factures fournisseurs : HT
     r.tvaPayee = sumBy(ch.filter(c => !isCharge(c)), c => +c.montant || 0); // TVA versée à la DGI : pas une charge
@@ -1042,7 +1061,6 @@ function saisie() {
   $('#dDate').value = state.date;
   const j = draft || db.jours[state.date] || {};
   for (const el of $('#fJour').elements) if (el.name) el.value = j[el.name] || '';
-  document.querySelector('#p-saisie .fCharge [name=date]').value = state.date;
   document.querySelector('#p-saisie .fClient [name=date]').value = state.date;
   live();
 }
@@ -1065,22 +1083,21 @@ function live() {
     ${kv('CA TTC du mois à ce jour', fmt(sumBy(mois, x => x.caTTC)), `${mName(ym)} · soit ${fmt(sumBy(mois, x => x.ca))} HT`)}
     ${kv('Toutes charges du jour', fmt(r.charges), 'caisse + banque + factures HT')}`;
   const ch = db.charges.filter(c => c.date === state.date);
-  $('#dayCh').innerHTML = ch.length ? chargeTable(ch, false) : '<p class="empty">Aucune dépense ce jour.</p>';
+  $('#dayCh').innerHTML = ch.length ? chargeTable(ch, false) : '<p class="empty">Aucun achat ce jour.</p>';
   const co = db.cops.filter(o => o.date === state.date);
   $('#dayCred').innerHTML = co.length ? copTable(co) : '<p class="empty">Aucun crédit client ce jour.</p>';
 }
 function chargeTable(list, withDate) {
   return `<table><thead><tr>${withDate ? '<th>Date</th>' : ''}<th class="t">Catégorie</th><th class="t">Libellé</th><th class="t">Source</th><th>Montant HT</th><th></th></tr></thead><tbody>` +
-    list.map(c => `<tr>${withDate ? `<td>${fd(c.date)}</td>` : ''}<td class="t">${esc(c.cat)}</td><td class="t">${esc([c.lib, c.four, c.ref && 'n° ' + c.ref, c.fac && 'facture ' + c.fac, (c.tva || (c.source === 'Fournisseur' && c.tva != null)) && `TVA ${c.tva} %`].filter(Boolean).join(' · '))}</td><td class="t">${esc(c.source)}</td><td>${fmt(c.montant)}</td><td><button class="x" data-del="${esc(c.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
+    list.map(c => `<tr>${withDate ? `<td>${fd(c.date)}</td>` : ''}<td class="t">${esc(c.cat)}</td><td class="t">${esc([c.lib, c.four, c.ref && 'n° ' + c.ref, c.fac && 'facture ' + c.fac, (c.tva || (c.source === 'Fournisseur' && c.tva != null)) && `TVA ${c.tva} %`].filter(Boolean).join(' · '))}</td><td class="t">${esc(c.source)}${c.paye ? ' · payé ' + (c.paye === 'Caisse' ? 'espèces' : 'banque') : ''}</td><td>${fmt(c.montant)}</td><td><button class="x" data-del="${esc(c.id)}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`).join('') +
     `</tbody><tfoot><tr><td colspan="${withDate ? 4 : 3}">Total</td><td>${fmt(sumBy(list, c => +c.montant))}</td><td></td></tr></tfoot></table>`;
 }
 
 function charges() {
-  const f = document.querySelector('#p-charges .fCharge');
-  if (!f.date.value.startsWith(state.ym)) f.date.value = today().startsWith(state.ym) ? today() : state.ym + '-01';
   const list = db.charges.filter(c => c.date.startsWith(state.ym)).sort((a, b) => b.date.localeCompare(a.date));
-  const ch = list.filter(isCharge), by = s => sumBy(ch.filter(c => c.source === s), c => +c.montant), fac = by('Fournisseur');
-  const tva = sumBy(list.filter(c => !isCharge(c)), c => +c.montant), tot = sumBy(ch, c => +c.montant), n = s => ch.filter(c => c.source === s).length;
+  // payé comment : espèces, banque, ou à crédit (fournisseur réglé plus tard)
+  const how = c => c.paye || c.source, ch = list.filter(isCharge), by = s => sumBy(ch.filter(c => how(c) === s), c => +c.montant), fac = by('Fournisseur');
+  const tva = sumBy(list.filter(c => !isCharge(c)), c => +c.montant), tot = sumBy(ch, c => +c.montant), n = s => ch.filter(c => how(c) === s).length;
   // mois en cours : on compare à la même période du mois précédent (1er → même quantième)
   const pm = prevYm(state.ym), cut = state.ym === today().slice(0, 7) ? today().slice(8) : '31', per = cut < '31' ? `1–${+cut} ` : '';
   const totP = sumBy(db.charges.filter(c => c.date.startsWith(pm) && c.date.slice(8) <= cut && isCharge(c)), c => +c.montant), d = totP ? (tot - totP) / totP * 100 : null;
@@ -1089,9 +1106,9 @@ function charges() {
   // plus de charges = mauvais signe : flèche ▲ en rouge
   $('#chTiles').innerHTML = kpi('Charges — ' + mName(state.ym), fmt(tot) + ' DH',
       (d == null ? `${ch.length} charge(s)` : `<span class="dc ${d > 0 ? 'dn' : 'up'}">${d >= 0 ? '▲' : '▼'} ${pct(Math.abs(d))}</span> vs ${per}${mName(pm)} (${fmt(totP)} DH)`) + (ca ? ` · ${pct(tot / ca * 100)} du CA HT` : ''), 'lead') +
-    kpi('Payé en caisse', fmt(by('Caisse')), `${n('Caisse')} dépense(s) · colonne Dépense du jour`) +
-    kpi('Payé par banque', fmt(by('Banque')), `${n('Banque')} charge(s)`) +
-    kpi('Factures fournisseurs HT', fmt(fac), `${n('Fournisseur')} facture(s) ou avoir(s) · onglet Fournisseurs`) +
+    kpi('Payé en espèces', fmt(by('Caisse')), `${n('Caisse')} achat(s) HT · sortent de la caisse (colonne Dépense)`) +
+    kpi('Payé par banque', fmt(by('Banque')), `${n('Banque')} achat(s) HT`) +
+    kpi('Achats à crédit HT', fmt(fac), `${n('Fournisseur')} facture(s), BL ou avoir(s) · réglés plus tard, onglet Fournisseurs`) +
     kpi('Premier poste', cats[0] ? fmt(cats[0][1]) : '—', cats[0] ? `${esc(cats[0][0])} · ${pct(cats[0][1] / tot * 100)} des charges` : 'aucune charge') +
     (tva ? kpi('TVA payée à la DGI', fmt(tva), 'pas une charge : partie TVA du bilan') : '');
   $('#chCat').innerHTML = hbars(cats);
@@ -1127,6 +1144,7 @@ function sortiesCaisse(du, au, d = db) {
   const ok = x => x >= du && x <= au, taux = +d.params.taux || 0, o = [];
   for (const m of d.mvts) if (m.type !== 'Entrée' && ok(m.date)) o.push({ date: m.date, qui: m.benef || m.motif || 'Sans nom', type: 'Sortie', detail: m.motif || '', montant: +m.montant || 0 });
   for (const c of d.charges) if (c.source === 'Caisse' && ok(c.date)) o.push({ date: c.date, qui: c.cat, type: 'Dépense', detail: c.lib || '', montant: ttcOf(c) });
+  for (const c of d.charges) if (c.paye === 'Caisse' && ok(c.date)) o.push({ date: c.date, qui: c.four, type: 'Fournisseur', detail: (c.bl ? 'BL' : 'Facture') + (c.ref ? ' · ' + c.ref : '') + ' payé à la réception', montant: ttcOf(c) });
   for (const p of d.paiements) if (p.mode === 'Caisse' && ok(p.date)) o.push({ date: p.date, qui: p.four, type: 'Fournisseur', detail: 'Paiement' + (p.ref ? ' · ' + p.ref : ''), montant: +p.montant || 0 });
   for (const [date, j] of Object.entries(d.jours)) { const v = (+j.versement || 0) + (+j.versEur || 0) * taux; if (v && ok(date)) o.push({ date, qui: 'Banque', type: 'Versement', detail: j.versEur ? `dont ${fmt(+j.versEur)} €` : '', montant: v }); }
   return o.sort((a, b) => b.date.localeCompare(a.date));
@@ -1160,8 +1178,9 @@ const cent = v => Math.round(v * 100) / 100;
 function compte(nom, d = db) {
   const f = d.fours.find(x => x.nom === nom) || {}, solde0 = +f.solde0 || 0;
   // factures saisies HT : on doit le TTC (anciennes factures sans taux = montant déjà dû)
-  const ops = [...d.charges.filter(c => c.source === 'Fournisseur' && c.four === nom).map(c => ({ ...c, del: 'del', v: ttcOf(c),
-      op: (c.montant < 0 ? 'Avoir' : c.bl ? 'Bon de livraison' : 'Facture') + (c.bl ? (c.fac ? ` · facture ${esc(c.fac)}` : ' · à facturer') : '') + (!c.bl && c.montant > 0 ? ` · échéance ${fd(c.ech || echDefaut(c.date))}` : '') + (c.tva ? ` (HT ${fmt(Math.abs(c.montant))} + TVA ${c.tva} %)` : '') })),
+  const payeOp = c => c.paye ? [{ ...c, del: 'del', v: -ttcOf(c), op: 'Payé à la réception ' + (c.paye === 'Caisse' ? '(espèces)' : '(banque)') }] : [];
+  const ops = [...d.charges.filter(c => c.source === 'Fournisseur' && c.four === nom).flatMap(c => [{ ...c, del: 'del', v: ttcOf(c),
+      op: (c.montant < 0 ? 'Avoir' : c.bl ? 'Bon de livraison' : 'Facture') + (c.bl ? (c.fac ? ` · facture ${esc(c.fac)}` : ' · à facturer') : '') + (!c.bl && c.montant > 0 && !c.paye ? ` · échéance ${fd(c.ech || echDefaut(c.date))}` : '') + (c.tva ? ` (HT ${fmt(Math.abs(c.montant))} + TVA ${c.tva} %)` : '') }, ...payeOp(c)]),
     ...d.paiements.filter(p => p.four === nom).map(p => ({ ...p, op: p.mode === 'Caisse' ? 'Paiement espèces' : 'Paiement banque', v: -(+p.montant || 0), del: 'delpay' }))]
     .sort((a, b) => a.date.localeCompare(b.date));
   let solde = solde0;
@@ -1179,12 +1198,13 @@ function factures(d = db) {
     const ch = d.charges.filter(c => c.source === 'Fournisseur' && c.four === f.nom), items = [], g = {};
     if (+f.solde0 > 0) items.push({ date: '', ttc: +f.solde0 });                     // dette d'avant la 1re saisie
     for (const c of ch) if (c.montant > 0 && !c.bl) items.push({ four: f.nom, num: c.ref || '—', date: c.date, ech: c.ech || addDays(c.date, delai), ttc: ttcOf(c), cs: [c] });
+    const pre = cs => sumBy(cs.filter(c => c.paye), ttcOf); // payé à la réception
     for (const c of ch) if (c.bl && c.fac) (g[c.fac] ??= []).push(c);
     for (const cs of Object.values(g)) { const date = cs[0].facDate || cs.map(c => c.date).sort().at(-1); items.push({ four: f.nom, num: cs[0].fac, date, ech: cs[0].facEch || addDays(date, delai), ttc: sumBy(cs, ttcOf), cs, bl: cs.length }); }
-    for (const c of ch) if (c.bl && !c.fac && c.montant > 0) items.push({ date: c.date, ttc: ttcOf(c) }); // BL pas encore facturé : dette sans échéance
+    for (const c of ch) if (c.bl && !c.fac && c.montant > 0 && !c.paye) items.push({ date: c.date, ttc: ttcOf(c) }); // BL pas encore facturé : dette sans échéance
     let credit = sumBy(d.paiements.filter(p => p.four === f.nom), p => +p.montant || 0) - sumBy(ch.filter(c => c.montant < 0), ttcOf) + Math.max(0, -(+f.solde0 || 0));
     for (const it of items.sort((a, b) => a.date.localeCompare(b.date))) {
-      const paye = Math.max(0, Math.min(credit, it.ttc)); credit -= paye; it.reste = cent(it.ttc - paye);
+      const du = it.ttc - (it.cs ? pre(it.cs) : 0), paye = Math.max(0, Math.min(credit, du)); credit -= paye; it.reste = cent(du - paye);
       if (it.cs) out.push(it);
     }
   }
@@ -1304,7 +1324,7 @@ function jourPrint() {
       F.filter(f => f[2] === g).map(([k, l]) => `<tr><td class="t">${l}</td><td>${val(k)}</td></tr>`).join('') + '</tbody></table>').join('') +
       (el.obs.value ? `<h2>Observation</h2><p>${esc(el.obs.value)}</p>` : '') + `</div><div>${panneau.innerHTML}</div></div>
     <h2>Crédit clients de ce jour</h2>${$('#dayCred').innerHTML}
-    <h2>Dépenses / charges de ce jour</h2>${$('#dayCh').innerHTML}
+    <h2>Achats et charges de ce jour</h2>${$("#dayCh").innerHTML}
     <p class="rinfo" style="margin-top:28px">Visa du responsable (${RESP}) : ________________________</p>`;
   printArea();
 }
@@ -1341,7 +1361,7 @@ $('#fBL').onsubmit = e => {
   if (!db.fours.some(x => x.nom === four)) return alert('Choisissez un fournisseur.');
   if (!f.date.value || !(m > 0)) return alert('Indiquez une date et un montant supérieur à 0.');
   if (f.cat.value === NEW_CAT) return alert('Choisissez une catégorie.');
-  db.charges.push({ id: uid(), date: f.date.value, four, ref: f.ref.value.trim(), cat: f.cat.value, lib: 'BL', montant: m, tva: +f.tva.value, source: 'Fournisseur', bl: 1, fac: '' });
+  db.charges.push({ id: uid(), date: f.date.value, four, ref: f.ref.value.trim(), cat: f.cat.value, lib: 'BL', montant: m, tva: +f.tva.value, source: 'Fournisseur', bl: 1, fac: '', ...(f.paye.value ? { paye: f.paye.value } : {}) });
   save(); f.ref.value = ''; f.montant.value = ''; render(); flash('BL ajouté ✓');
 };
 const blSel = new Set(); // BL cochés
@@ -1648,8 +1668,8 @@ function toWorkbook() {
   const L = ledger();
   return book([
     ['Journal', [['Date', ...F.map(f => f[1]), 'Observation'], ...Object.keys(db.jours).sort().map(d => [d, ...F.map(f => +db.jours[d][f[0]] || 0), db.jours[d].obs || ''])], [12, ...F.map(() => 12), 30]],
-    ['Charges', [['Date', 'Catégorie', 'Libellé', 'Montant', 'Source', 'Fournisseur', 'Référence', 'TVA %', 'BL', 'N° facture', 'Date facture', 'Échéance'], ...[...db.charges].sort((a, b) => a.date.localeCompare(b.date))
-      .map(c => [c.date, c.cat, c.lib, c.montant, c.source, c.four || '', c.ref || '', c.tva ?? '', c.bl ? 1 : '', c.fac || '', c.facDate || '', c.ech || c.facEch || ''])], [12, 22, 30, 12, 11, 22, 14, 8, 5, 14, 12, 12]],
+    ['Charges', [['Date', 'Catégorie', 'Libellé', 'Montant', 'Source', 'Fournisseur', 'Référence', 'TVA %', 'BL', 'N° facture', 'Date facture', 'Échéance', 'Payé'], ...[...db.charges].sort((a, b) => a.date.localeCompare(b.date))
+      .map(c => [c.date, c.cat, c.lib, c.montant, c.source, c.four || '', c.ref || '', c.tva ?? '', c.bl ? 1 : '', c.fac || '', c.facDate || '', c.ech || c.facEch || '', c.paye || ''])], [12, 22, 30, 12, 11, 22, 14, 8, 5, 14, 12, 12, 9]],
     ['Fournisseurs', [['Nom', 'Téléphone', 'Solde de départ', 'Solde actuel'], ...db.fours.map(f => [f.nom, f.tel, f.solde0, compte(f.nom).solde])], [26, 16, 14, 14]],
     ['Clients', [['Nom', 'Téléphone', 'Solde de départ', 'Solde actuel'], ...db.clients.map(c => [c.nom, c.tel, c.solde0, compteClient(c.nom).solde])], [26, 16, 14, 14]],
     ['Crédits clients', [['Date', 'Client', 'Type', 'Montant', 'Mode', 'Détail'], ...[...db.cops].sort((a, b) => a.date.localeCompare(b.date)).map(o => [o.date, o.client, o.type, o.montant, o.mode, o.note])], [12, 26, 14, 12, 10, 30]],
@@ -1680,7 +1700,7 @@ function fromWorkbook(wb) {
   for (const n of nd.cops.map(o => o.client)) if (n && !nd.clients.some(c => c.nom === n)) nd.clients.push({ nom: n, tel: '', solde0: 0 });
   for (const r of C) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.charges.push({ id: uid(), date: d, cat: String(r['Catégorie'] || 'Autre'), lib: String(r['Libellé'] || ''), montant: num(r.Montant),
     source: ['Banque', 'Fournisseur'].includes(r.Source) ? r.Source : 'Caisse', four: String(r.Fournisseur || '').trim(), ref: String(r['Référence'] || ''),
-    ...(r['TVA %'] === '' || r['TVA %'] == null ? {} : { tva: num(r['TVA %']) }), ...(r.BL ? { bl: 1, fac: String(r['N° facture'] || ''), facDate: toIso(r['Date facture']) || '', facEch: toIso(r['Échéance']) || '' } : toIso(r['Échéance']) ? { ech: toIso(r['Échéance']) } : {}) }); }
+    ...(r['TVA %'] === '' || r['TVA %'] == null ? {} : { tva: num(r['TVA %']) }), ...(r.BL ? { bl: 1, fac: String(r['N° facture'] || ''), facDate: toIso(r['Date facture']) || '', facEch: toIso(r['Échéance']) || '' } : toIso(r['Échéance']) ? { ech: toIso(r['Échéance']) } : {}), ...(['Caisse', 'Banque'].includes(r['Payé']) ? { paye: r['Payé'] } : {}) }); }
   for (const r of PA || []) { const d = toIso(r.Date); if (d && num(r.Montant)) nd.paiements.push({ id: uid(), date: d, four: String(r.Fournisseur || '').trim(), montant: num(r.Montant), mode: r.Mode === 'Banque' ? 'Banque' : 'Caisse', ref: String(r['Référence'] || '') }); }
   nd.fours = (FO || []).map(r => ({ nom: String(r.Nom || '').trim(), tel: String(r['Téléphone'] || ''), solde0: num(r['Solde de départ']) })).filter(f => f.nom);
   for (const n of [...nd.charges.map(c => c.four), ...nd.paiements.map(p => p.four)]) if (n && !nd.fours.some(f => f.nom === n)) nd.fours.push({ nom: n, tel: '', solde0: 0 });
@@ -1767,9 +1787,12 @@ function renderBanner() {
   const name = fileH ? `<b>${esc(fileH.name)}</b>` : '';
   let h = '';
   if (DEMO) h = `<div>🧪 <span><b>Mode démonstration</b> — ces chiffres sont fictifs et générés automatiquement. Modifiez ce que vous voulez : rien n'est enregistré. Mot de passe de démonstration : <b>1234</b>.</span><a class="btn pri" href="?">Utiliser mes vraies données</a></div>`;
+  else if (other) h = `<div class="warn">⚠ <span><b>L'app est déjà ouverte dans une autre fenêtre ou un autre onglet.</b> Rien ne peut être saisi ici. Fermez l'autre fenêtre : celle-ci se recharge toute seule.</span></div>`;
   else if (!FS_OK) h = `<div class="warn">⚠ Ce navigateur ne peut pas enregistrer dans un fichier : les données restent seulement dans le navigateur. <b>Ouvrez index.html avec Google Chrome ou Microsoft Edge.</b></div>`;
   else if (!fileH) h = `<div>📄 <span><b>Où enregistrer les données ?</b> Créez un fichier Excel (de préférence dans le dossier de l'app) : chaque saisie y sera enregistrée automatiquement.</span>
     <button class="btn pri" onclick="newFile()">Créer le fichier de données</button><button class="btn" onclick="openFile()">Ouvrir un fichier existant</button></div>`;
+  else if (fileState === 'conflict') h = `<div class="warn">⚠ <span><b>Le fichier ${name} a été modifié en dehors de l'app</b> (Excel, autre ordinateur…). Rien n'a été écrasé : choisissez quelles données garder.</span>
+    <button class="btn pri" onclick="takeFile()">Reprendre le fichier</button><button class="btn" onclick="keepApp()">Garder celles de l'app</button></div>`;
   else if (fileState === 'reconnect') h = `<div>🔌 <span>Cliquez pour reconnecter le fichier de données ${name} (le navigateur demande l'autorisation à chaque ouverture).</span><button class="btn pri" onclick="reconnect()">Reconnecter</button></div>`;
   else if (fileState === 'err') h = `<div class="warn">⚠ <span>Le fichier ${name} n'a pas pu être enregistré (${esc(fileErr)}). S'il est ouvert dans Excel, fermez-le. Les données restent gardées dans le navigateur.</span>
     <button class="btn pri" onclick="writeFile()">Réessayer</button><button class="btn" onclick="newFile()">Choisir un autre fichier</button></div>`;
@@ -1801,8 +1824,10 @@ document.addEventListener('change', async e => {
   if (e.target.form?.id === 'fOp' && e.target.name === 'type') {
     const f = e.target.form, p = e.target.value === 'Paiement';
     f.cat.hidden = f.tva.hidden = p; f.mode.hidden = !p; f.montant.placeholder = p ? 'Montant payé (DH)' : 'Montant HT (DH)';
-    f.ech.closest('label').hidden = e.target.value !== 'Facture';                    // l'échéance ne concerne que les factures
+    f.paye.hidden = e.target.value !== 'Facture';
+    f.ech.closest('label').hidden = e.target.value !== 'Facture' || !!f.paye.value;  // l'échéance ne concerne que les factures à crédit
   }
+  if (e.target.form?.id === 'fOp' && e.target.name === 'paye') e.target.form.ech.closest('label').hidden = !!e.target.value;
   const k = e.target.dataset?.fset, fo = k && db.fours.find(x => x.nom === state.four);
   if (fo) { const v = e.target.value; if (await guard(`Modifier ${k === 'tel' ? 'le téléphone' : 'le solde de départ'} de ${fo.nom} ?`, 'Modifier', 'Modifier un fournisseur')) { fo[k] = k === 'tel' ? v.trim() : num(v); save(); } return render(); }
   if (e.target.name === 'client' && e.target.value === NEW_CLIENT) {
@@ -1873,7 +1898,7 @@ $('#fOp').onsubmit = e => {
   if (type === 'Paiement') db.paiements.push({ ...op, montant: m, mode: f.mode.value });
   else if (f.cat.value === NEW_CAT) return alert('Choisissez une catégorie.');
   else db.charges.push({ ...op, cat: f.cat.value, lib: type, montant: type === 'Avoir' ? -m : m, tva: +f.tva.value, source: 'Fournisseur',
-    ...(type === 'Facture' ? { ech: f.ech.value || echDefaut(f.date.value) } : {}) }); // HT ; avoir = charge négative
+    ...(type === 'Facture' ? { ech: f.ech.value || echDefaut(f.date.value), ...(f.paye.value ? { paye: f.paye.value } : {}) } : {}) }); // HT ; avoir = charge négative
   state.four = four; save(); f.ref.value = ''; f.montant.value = ''; f.ech.dataset.auto = '1'; f.ech.value = echDefaut(f.date.value); render();
 };
 $('#dDate').onchange = e => setDate(e.target.value);
@@ -1911,14 +1936,6 @@ document.addEventListener('submit', e => {
     db.cops.push({ id: uid(), date: f.date.value, client, type, montant: m, mode: type === 'Crédit' ? '' : f.mode.value, note: f.note.value.trim() });
     state.client = client; save(); f.montant.value = ''; f.note.value = ''; return render();
   }
-  if (!e.target.matches('.fCharge')) return;
-  e.preventDefault();
-  const f = e.target.elements, ttc = num(f.montant.value), tva = +f.tva.value;
-  if (!f.date.value || !(ttc > 0)) return alert('Indiquez une date et un montant supérieur à 0.');
-  if (f.cat.value === NEW_CAT) return alert('Choisissez une catégorie.');
-  // montant payé TTC → charge enregistrée HT (le TTC sort de la caisse / de la banque)
-  db.charges.push({ id: uid(), date: f.date.value, cat: f.cat.value, lib: f.lib.value.trim(), montant: cent(ttc / (1 + tva / 100)), tva, source: f.source.value });
-  save(); f.lib.value = ''; f.montant.value = ''; f.cat.focus(); render();
 });
 document.addEventListener('click', async e => {
   if (e.target.closest('[data-savejour]')) return saveJour();
@@ -2066,11 +2083,21 @@ if (location.search.includes('test')) {
   checks['Solde fournisseur (TTC)'] = cf.solde === 520 && cf.fact === 1440 && cf.regl === 1420;
   checks['Facture = charge HT, hors caisse'] = fa.charges === 1100 && fa.dep === 0 && fa.tvaRec === 220;
   checks['Paiement espèces = dépense caisse, pas une charge'] = fp.dep === 300 && fp.payF === 300 && fp.charges === 0 && fp.reste === -300;
+  // achat payé à la réception (saisi une seule fois) : facture A 200 à crédit, BL 100 HT + TVA 20 % payé en espèces, facture B 50 payée par banque, paiement banque 100
+  const PX = { ...DEF(), fours: [{ nom: 'F2', solde0: 0 }], paiements: [{ date: '2026-10-05', four: 'F2', montant: 100, mode: 'Banque' }],
+    charges: [{ date: '2026-10-01', montant: 200, tva: 0, source: 'Fournisseur', four: 'F2', cat: 'Divers', ref: 'A' },
+      { date: '2026-10-02', montant: 100, tva: 20, source: 'Fournisseur', four: 'F2', cat: 'Divers', ref: 'BL1', bl: 1, fac: '', paye: 'Caisse' },
+      { date: '2026-10-03', montant: 50, tva: 0, source: 'Fournisseur', four: 'F2', cat: 'Divers', ref: 'B', paye: 'Banque' }] };
+  const PLx = ledger(PX), px2 = PLx.find(x => x.date === '2026-10-02'), px3 = PLx.find(x => x.date === '2026-10-03'), cpx = compte('F2', PX), fxx = factures(PX);
+  const keepDb = db; db = PX; const rtx = fromWorkbook(XLSX.read(XLSX.write(toWorkbook(), { type: 'array', bookType: 'xlsx' }))); db = keepDb;
+  checks['Achat payé à la réception'] = px2.dep === 120 && px2.payF === 120 && px2.charges === 100 && px2.reste === -120 && px3.dep === 0 && px3.charges === 50
+    && cpx.solde === 100 && fxx.find(x => x.num === 'A').reste === 100 && fxx.find(x => x.num === 'B').reste === 0 && fxx.length === 2
+    && rtx.charges.map(c => c.paye || '').sort().join() === ',Banque,Caisse';
   const bad = Object.keys(checks).filter(k => !checks[k]);
   alert(bad.length ? 'Auto-test ÉCHEC : ' + bad.join(', ') : 'Auto-test OK ✓');
 }
 render();
-initFile().then(needPwd);
+lockApp().then(ok => ok ? initFile().then(needPwd) : renderBanner());
 </script>
 </body>
 </html>
